@@ -108,7 +108,7 @@ def generate_image_callback():
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
     size = dpg.get_values(["image_width", "image_height"])
-    strength = dpg.get_value("strength")
+    # strength = dpg.get_value("strength")
     guidance_scale = dpg.get_value("guidance_scale")
     step_count = dpg.get_value("step_count")
     seed = dpg.get_value("seed")
@@ -188,14 +188,14 @@ with dpg.window(tag="window"):
     dpg.add_input_text(label="Negative Prompt", width=config.ITEM_WIDTH, tag="negative_prompt")
     dpg.add_input_int(
         label="Width",
-        default_value=512,
+        default_value=config.DEFAULT_IMAGE_SIZE[0],
         min_value=1,
         width=config.ITEM_WIDTH,
         tag="image_width",
     )
     dpg.add_input_int(
         label="Height",
-        default_value=512,
+        default_value=config.DEFAULT_IMAGE_SIZE[1],
         min_value=1,
         width=config.ITEM_WIDTH,
         tag="image_height",
