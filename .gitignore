@@ -1,0 +1,4 @@
+.DS_Store
+ongau/models/
+__pycache__
+saves*
