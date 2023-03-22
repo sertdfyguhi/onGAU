@@ -1,7 +1,7 @@
 import os
 
 # edited and modified from https://stackoverflow.com/questions/17984809/how-do-i-create-an-incrementing-filename-in-python
-def next_file_number(path_pattern):
+def next_file_number(path_pattern: str):
     """
     Finds the next free file number in an sequentially named list of files
 

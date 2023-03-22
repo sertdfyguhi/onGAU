@@ -100,7 +100,10 @@ def generate_image_callback():
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, 'models/')
     if model != imagen.model:
+        dpg.show_item('info_text')
+        dpg.set_value('info_text', f'Loading {model}...')
         imagen.set_model(model)
+        dpg.hide_item('info_text')
 
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
@@ -116,7 +119,9 @@ def generate_image_callback():
         dpg.set_value("output_image", [])
 
     dpg.hide_item("save_button")
-    dpg.hide_item("seed_widget_group")
+    dpg.hide_item("info_text")
+    dpg.hide_item("seed_button")
+    dpg.hide_item("info_text")
     dpg.show_item("progress_bar")
 
     last_step_time = start_time = time.time()
@@ -153,7 +158,8 @@ def generate_image_callback():
     )
 
     dpg.hide_item("progress_bar")
-    dpg.show_item("seed_widget_group")
+    dpg.show_item("info_text")
+    dpg.show_item("seed_button")
     dpg.show_item("save_button")
 
 
@@ -240,18 +246,22 @@ with dpg.window(tag="window"):
 
     dpg.add_button(label="Save", tag="save_button", show=False)
 
-    with dpg.group(horizontal=True, tag="seed_widget_group", show=False):
-        dpg.add_text(tag="info_text")
+    with dpg.group(horizontal=True):
+        dpg.add_text(tag="info_text", show=False)
         dpg.add_button(
             label="Copy Seed",
+            tag="seed_button",
             callback=lambda: pyperclip.copy(current_seed),
+            show=False
         )
 
     dpg.bind_font(default_font)
 
-dpg.setup_dearpygui()
-dpg.show_viewport()
 dpg.set_primary_window("window", True)
-print("starting GUI")
-dpg.start_dearpygui()
-dpg.destroy_context()
+
+if __name__ == "__main__":
+    print("starting GUI")
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    dpg.start_dearpygui()
+    dpg.destroy_context()

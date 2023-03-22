@@ -16,7 +16,7 @@ git clone https://github.com/sertdfyguhi/onGAU.git
 pip3 install -r requirements.txt
 ```
 
-3. set the model (from huggingface or locally in `ongau/models` folder in diffusers format) and other configuration in `ongau/config.py`
+3. set the model (from huggingface or locally in `onGAU/models` folder in diffusers format) and other configuration in `onGAU/config.py`
 
 4. run main.py
 
