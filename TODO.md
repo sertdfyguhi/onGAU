@@ -5,6 +5,6 @@
 - [ ] optimize code
   - [ ] use less memory when generating large images
 - [ ] turn code into app
-- [ ] convert hentai diffusion into diffusers format
+- [x] convert hentai diffusion into diffusers format
 - [ ] make it cross platform
 - [ ] upscaler
