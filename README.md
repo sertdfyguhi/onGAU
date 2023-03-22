@@ -7,7 +7,7 @@ very simple ai image generator ui interface made using dearpygui
 1. clone this repository
 
 ```sh
-git clone
+git clone https://github.com/sertdfyguhi/onGAU.git
 ```
 
 2. install requirements.txt
