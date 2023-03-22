@@ -1,8 +1,8 @@
-# onGAU: on Generative AI UI
+# onGAU: Oversimplified Neural Generative AI UI
 
 ![interface of onGAU on Mac](https://raw.githubusercontent.com/sertdfyguhi/onGAU/master/interface.png)
 
-very simple ai image generator ui interface made using dearpygui
+A very simple AI image generator UI interface made using [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
 
 ## Installation
 

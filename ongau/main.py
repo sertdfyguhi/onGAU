@@ -24,9 +24,16 @@ file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 last_step_time = None
 current_seed = None
 
+def update_window_title(info: str = None):
+    dpg.set_viewport_title(f"{config.WINDOW_TITLE} - {info}" if info else config.WINDOW_TITLE)
 
 def save_image(image_info: GeneratedImage):
     global file_number
+
+    saved_file_path = config.SAVE_FILE_PATTERN % file_number
+
+    dpg.set_item_label('save_button', 'Saving...')
+    update_window_title(f'Saving to {saved_file_path}...')
 
     metadata = PngInfo()
     metadata.add_text("model", image_info.model)
@@ -39,6 +46,9 @@ def save_image(image_info: GeneratedImage):
 
     image_info.image.save(config.SAVE_FILE_PATTERN % file_number, pnginfo=metadata)
     file_number += 1
+
+    dpg.set_item_label('save_button', 'Save Image')
+    update_window_title()
 
 
 def update_image(contents, width: int, height: int):
@@ -85,7 +95,7 @@ def progress_callback(step, step_count):
 
     print("generating...", overlay)
 
-    dpg.set_viewport_title(f"{config.WINDOW_TITLE} - Generating {overlay}")
+    update_window_title(f"Generating... {overlay}")
 
     dpg.set_value("progress_bar", progress)
     dpg.configure_item(
@@ -102,8 +112,12 @@ def generate_image_callback():
     if model != imagen.model:
         dpg.show_item('info_text')
         dpg.set_value('info_text', f'Loading {model}...')
+        update_window_title(f'Loading {model}...')
+
         imagen.set_model(model)
+
         dpg.hide_item('info_text')
+        update_window_title()
 
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
@@ -141,7 +155,7 @@ def generate_image_callback():
 
     print("finished generating image; seed:", image.seed)
 
-    dpg.set_viewport_title(config.WINDOW_TITLE)
+    update_window_title()
     update_image(image.contents, image.width, image.height)
 
     current_seed = image.seed
@@ -210,7 +224,7 @@ with dpg.window(tag="window"):
     dpg.add_input_float(
         label="Guidance Scale",
         default_value=8.0,
-        max_value=20.0,
+        max_value=50.0,
         format="%.1f",
         width=config.ITEM_WIDTH,
         tag="guidance_scale",
@@ -219,7 +233,7 @@ with dpg.window(tag="window"):
         label="Step Count",
         default_value=10,
         min_value=1,
-        max_value=200,
+        max_value=500,
         width=config.ITEM_WIDTH,
         tag="step_count",
     )
@@ -244,7 +258,7 @@ with dpg.window(tag="window"):
     dpg.add_button(label="Generate Image", callback=generate_image_callback)
     dpg.add_progress_bar(overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False)
 
-    dpg.add_button(label="Save", tag="save_button", show=False)
+    dpg.add_button(label="Save Image", tag="save_button", show=False)
 
     with dpg.group(horizontal=True):
         dpg.add_text(tag="info_text", show=False)
