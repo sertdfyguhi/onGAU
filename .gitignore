@@ -2,3 +2,4 @@
 ongau/models/
 __pycache__
 saves*
+setup.py
