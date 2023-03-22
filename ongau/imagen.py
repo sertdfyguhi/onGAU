@@ -9,7 +9,7 @@ import torch
 @dataclass(frozen=True)
 class GeneratedImage:
     model: str
-    contents: list | np.ndarray
+    contents: np.ndarray
     image: Image
     prompt: str
     negative_prompt: str
@@ -28,10 +28,14 @@ class ImageGeneration:
         self._attention_slicing_enabled = False
         self.set_model(model)
 
+    @property
+    def model(self):
+        return self._model
+
     def set_model(self, model: str) -> None:
         print(f"loading {model} with {self._device}")
 
-        self.model = model
+        self._model = model
         self._pipeline = DiffusionPipeline.from_pretrained(model).to(self._device)
 
         if not self._safety_checker_enabled:
@@ -110,7 +114,7 @@ class ImageGeneration:
         array = array / 255.0
 
         return GeneratedImage(
-            self.model,
+            self._model,
             array,
             image,
             prompt,

@@ -80,7 +80,7 @@ def progress_callback(step, step_count):
     global last_step_time
 
     elapsed_time = time.time() - last_step_time
-    progress = step/ step_count
+    progress = step / step_count
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
 
     print("generating...", overlay)
@@ -109,10 +109,7 @@ def generate_image_callback():
     guidance_scale = dpg.get_value("guidance_scale")
     step_count = dpg.get_value("step_count")
     seed = dpg.get_value("seed")
-    if len(seed) == 0:
-        seed = None
-    else:
-        seed = int(seed)
+    seed = int(seed) if seed.isdigit() else None
 
     if dpg.does_item_exist("output_image"):
         dpg.hide_item("output_image_item")
