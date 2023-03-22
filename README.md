@@ -1,6 +1,6 @@
 # onGAU: on Generative AI UI
 
-![interface of onGAU on Mac](https://github.com/sertdfyguhi/onGAU/interface.png)
+![interface of onGAU on Mac](https://raw.githubusercontent.com/sertdfyguhi/onGAU/master/interface.png)
 
 very simple ai image generator ui interface made using dearpygui
 
