@@ -1,4 +1,4 @@
-from imagen import ImageGeneration, GeneratedImage
+from imagen.text2img import ImageGenerator, GeneratedImage
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
 import pyperclip
@@ -16,7 +16,7 @@ FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 dpg.create_context()
 dpg.create_viewport(title=config.WINDOW_TITLE, width=config.WINDOW_SIZE[0], height=config.WINDOW_SIZE[1])
 
-imagen = ImageGeneration(MODEL, config.DEVICE)
+imagen = ImageGenerator(MODEL, config.DEVICE)
 imagen.disable_safety_checker()
 imagen.enable_attention_slicing()
 
@@ -132,11 +132,11 @@ def generate_image_callback():
         dpg.hide_item("output_image_item")
         dpg.set_value("output_image", [])
 
+    dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
     dpg.hide_item("info_text")
     dpg.hide_item("seed_button")
     dpg.hide_item("info_text")
-    dpg.show_item("progress_bar")
 
     last_step_time = start_time = time.time()
 
@@ -177,17 +177,9 @@ def generate_image_callback():
     dpg.show_item("save_button")
 
 
-def safety_checker_callback(tag, value):
-    if value:
-        imagen.disable_safety_checker()
-    else:
-        imagen.enable_safety_checker()
-
-def attention_slicing_callback(tag, value):
-    if value:
-        imagen.enable_attention_slicing()
-    else:
-        imagen.disable_attention_slicing()
+def checkbox_callback(tag, value):
+    func_name = ('enable_' if value else 'disable_') + tag
+    getattr(imagen, func_name)()
 
 
 # register font
@@ -242,17 +234,30 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="seed",
     )
+
     dpg.add_checkbox(
         label="Disable Safety Checker",
         tag="safety_checker",
         default_value=True,
-        callback=safety_checker_callback,
+        callback=lambda tag, value: checkbox_callback(tag, not value),
     )
     dpg.add_checkbox(
         label="Enable Attention Slicing",
         tag="attention_slicing",
         default_value=True,
-        callback=attention_slicing_callback,
+        callback=checkbox_callback,
+    )
+    dpg.add_checkbox(
+        label="Enable Vae Slicing",
+        tag="vae_slicing",
+        default_value=False,
+        callback=checkbox_callback,
+    )
+    dpg.add_checkbox(
+        label="Enable xFormers Memory Efficient Attention",
+        tag="xformers_memory_attention",
+        default_value=False,
+        callback=checkbox_callback,
     )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)

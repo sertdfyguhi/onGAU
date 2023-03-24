@@ -1,9 +1,10 @@
 from diffusers import DiffusionPipeline
+from .base_imagen import BaseImagen
 from dataclasses import dataclass
 from PIL.Image import Image
 from typing import Callable
+from . import utils
 import numpy as np
-import torch
 
 
 @dataclass(frozen=True)
@@ -21,16 +22,10 @@ class GeneratedImage:
     height: int
 
 
-class ImageGeneration:
+class ImageGenerator(BaseImagen):
     def __init__(self, model: str, device: str) -> None:
-        self._device = device
         self._safety_checker_enabled = False
-        self._attention_slicing_enabled = False
-        self.set_model(model)
-
-    @property
-    def model(self):
-        return self._model
+        super().__init__(model, device)
 
     def set_model(self, model: str) -> None:
         print(f"loading {model} with {self._device}")
@@ -44,15 +39,17 @@ class ImageGeneration:
         if self._attention_slicing_enabled:
             self.enable_attention_slicing()
 
+        if self._vae_slicing_enabled:
+            self.enable_vae_slicing()
+
+        if self._xformers_memory_attention_enabled:
+            self.enable_xformers_memory_attention()
+
         # remove progress bar logging
         self._pipeline.set_progress_bar_config(disable=True)
 
         # make a copy of the safety checker to be able to enable and disable it
         self._orig_safety_checker = self._pipeline.safety_checker
-
-    def set_device(self, device: str):
-        self._device = device
-        self._pipeline = self._pipeline.to(device)
 
     def enable_safety_checker(self):
         self._safety_checker_enabled = True
@@ -62,14 +59,6 @@ class ImageGeneration:
         if self._pipeline.safety_checker:
             self._safety_checker_enabled = False
             self._pipeline.safety_checker = lambda images, clip_input: (images, False)
-
-    def enable_attention_slicing(self):
-        self._attention_slicing_enabled = True
-        self._pipeline.enable_attention_slicing()
-
-    def disable_attention_slicing(self):
-        self._attention_slicing_enabled = False
-        self._pipeline.disable_attention_slicing()
 
     def generate_image(
         self,
@@ -82,14 +71,7 @@ class ImageGeneration:
         seed: int = None,
         progress_callback: Callable = None,
     ) -> GeneratedImage:
-        generator = torch.Generator(device=self._device)
-
-        if seed:
-            generator = generator.manual_seed(seed)
-        else:
-            generator.seed()
-
-        generation_seed = generator.initial_seed()
+        generator, gen_seed = utils.create_torch_generator(seed, self._device)
         image = (
             self._pipeline(
                 prompt=prompt,
@@ -106,22 +88,15 @@ class ImageGeneration:
             .convert("RGBA")
         )
 
-        # create np array and flatten
-        array = np.ravel(np.array(image))
-        # convert to float array
-        array = array.astype("float32")
-        # turn rgba values into floating point numbers
-        array = array / 255.0
-
         return GeneratedImage(
             self._model,
-            array,
+            utils.convert_PIL_to_DPG_image(image),
             image,
             prompt,
             negative_prompt,
             strength,
             guidance_scale,
             step_count,
-            generation_seed,
+            gen_seed,
             *image.size
         )
