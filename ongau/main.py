@@ -3,6 +3,7 @@ from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
 import pyperclip
 import config
+import torch
 import utils
 import time
 import os
@@ -136,7 +137,6 @@ def generate_image_callback():
     dpg.hide_item("save_button")
     dpg.hide_item("info_text")
     dpg.hide_item("seed_button")
-    dpg.hide_item("info_text")
 
     last_step_time = start_time = time.time()
 
@@ -180,6 +180,23 @@ def generate_image_callback():
 def checkbox_callback(tag, value):
     func_name = ('enable_' if value else 'disable_') + tag
     getattr(imagen, func_name)()
+
+def toggle_xformers(tag, value):
+    if not torch.cuda.is_available():
+        dpg.set_value('xformers_memory_attention', False)
+        dpg.show_item('info_text')
+        dpg.set_value('info_text', 'xformers is only available for GPUs')
+        print('xformers is only available for GPUs')
+        return
+
+    try:
+        checkbox_callback(tag, value)
+    except ModuleNotFoundError:
+        imagen.disable_xformers_memory_attention()
+        dpg.set_value('xformers_memory_attention', False)
+        dpg.show_item('info_text')
+        dpg.set_value('info_text', 'xformers is not installed, please run `pip3 install xformers`')
+        print("xformers is not installed, please run \033[1mpip3 install xformers\033[0m")
 
 
 # register font
@@ -257,7 +274,7 @@ with dpg.window(tag="window"):
         label="Enable xFormers Memory Efficient Attention",
         tag="xformers_memory_attention",
         default_value=False,
-        callback=checkbox_callback,
+        callback=toggle_xformers,
     )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)

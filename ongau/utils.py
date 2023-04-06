@@ -52,7 +52,7 @@ def resize_size_to_fit(
     return resize_size_to_fit(result_image_size, window_size)
 
 def append_dir_if_startswith(path: str, dir: str, startswith: str):
-    ''''''
+    '''Checks if a path starts with and if so appends a path to it'''
     if path.startswith(startswith):
         return os.path.join(dir, path)
     return path

@@ -1,5 +1,3 @@
-import torch
-
 class BaseImagen:
     def __init__(self, model: str, device: str) -> None:
         self._model = model
