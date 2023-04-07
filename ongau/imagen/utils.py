@@ -12,12 +12,18 @@ def convert_PIL_to_DPG_image(pil_image: Image):
 
     return array
 
-def create_torch_generator(seed: int | None, device: str):
-    generator = torch.Generator(device=device)
+def create_torch_generator(seed: int | None, device: str, generator_amount: int):
+    if seed: return (
+        [torch.Generator(device=device).manual_seed(seed)] * generator_amount,
+        [seed] * generator_amount
+    )
 
-    if seed:
-        generator = generator.manual_seed(seed)
-    else:
-        generator.seed()
+    generators = []
+    seeds = []
 
-    return generator, generator.initial_seed()
+    for _ in range(generator_amount):
+        gen = torch.Generator(device=device)
+        seeds.append(gen.seed())
+        generators.append(gen)
+
+    return generators, seeds

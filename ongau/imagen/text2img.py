@@ -68,35 +68,42 @@ class ImageGenerator(BaseImagen):
         strength: float = 0.8,
         guidance_scale: float = 7.5,
         step_count: int = 25,
+        image_amount: int = 1,
         seed: int = None,
         progress_callback: Callable = None,
-    ) -> GeneratedImage:
-        generator, gen_seed = utils.create_torch_generator(seed, self._device)
-        image = (
-            self._pipeline(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                generator=generator,
-                width=size[0],
-                height=size[1],
-                num_inference_steps=step_count,
-                # strength=strength, # remove due to weird keyword argument error
-                guidance_scale=guidance_scale,
-                callback=progress_callback
-            )
-            .images[0]
-            .convert("RGBA")
-        )
+    ) -> list[GeneratedImage]:
+        generators, seeds = utils.create_torch_generator(seed, self._device, image_amount)
+        images = self._pipeline(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            generator=generators,
+            width=size[0],
+            height=size[1],
+            num_inference_steps=step_count,
+            # strength=strength, # remove due to weird keyword argument error
+            guidance_scale=guidance_scale,
+            num_images_per_prompt=image_amount,
+            callback=progress_callback
+        ).images
 
-        return GeneratedImage(
-            self._model,
-            utils.convert_PIL_to_DPG_image(image),
-            image,
-            prompt,
-            negative_prompt,
-            strength,
-            guidance_scale,
-            step_count,
-            gen_seed,
-            *image.size
-        )
+        result = []
+
+        for i, image in enumerate(images):
+            image = image.convert('RGBA')
+
+            result.append(
+                GeneratedImage(
+                    self._model,
+                    utils.convert_PIL_to_DPG_image(image),
+                    image,
+                    prompt,
+                    negative_prompt,
+                    strength,
+                    guidance_scale,
+                    step_count,
+                    seeds[i],
+                    *image.size
+                )
+            )
+
+        return result

@@ -23,7 +23,8 @@ imagen.enable_attention_slicing()
 
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 last_step_time = None
-current_seed = None
+image_index = 0
+images = None
 
 def update_window_title(info: str = None):
     dpg.set_viewport_title(f"{config.WINDOW_TITLE} - {info}" if info else config.WINDOW_TITLE)
@@ -52,23 +53,23 @@ def save_image(image_info: GeneratedImage):
     update_window_title()
 
 
-def update_image(contents, width: int, height: int):
+def update_image(image: GeneratedImage):
     with dpg.texture_registry():
         if dpg.does_item_exist("output_image"):
             dpg.delete_item("output_image")
             dpg.delete_item("output_image_item")
 
         dpg.add_static_texture(
-            width=width,
-            height=height,
-            default_value=contents,
+            width=image.width,
+            height=image.height,
+            default_value=image.contents,
             tag="output_image",
         )
 
     # print("before image_widget_size calculation")
 
     image_widget_size = utils.resize_size_to_fit(
-        (width, height),
+        (image.width, image.height),
         (
             dpg.get_viewport_width(),
             dpg.get_viewport_height() - 15,
@@ -79,13 +80,17 @@ def update_image(contents, width: int, height: int):
 
     dpg.add_image(
         "output_image",
-        pos=(460, 7),
         width=image_widget_size[0],
         height=image_widget_size[1],
         tag="output_image_item",
-        parent="window",
+        before="output_image_selection",
+        parent="output_image_group",
     )
 
+    dpg.configure_item(
+        "save_button",
+        callback=lambda: save_image(image),
+    )
 
 def progress_callback(step, step_count):
     global last_step_time
@@ -107,7 +112,9 @@ def progress_callback(step, step_count):
 
 
 def generate_image_callback():
-    global current_seed, last_step_time
+    global last_step_time, image_index, images
+
+    image_index = 0
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, 'models/')
     if model != imagen.model:
@@ -126,12 +133,12 @@ def generate_image_callback():
     # strength = dpg.get_value("strength")
     guidance_scale = dpg.get_value("guidance_scale")
     step_count = dpg.get_value("step_count")
+    image_amount = dpg.get_value("image_amount")
     seed = dpg.get_value("seed")
     seed = int(seed) if seed.isdigit() else None
 
     if dpg.does_item_exist("output_image"):
-        dpg.hide_item("output_image_item")
-        dpg.set_value("output_image", [])
+        dpg.hide_item("output_image_group")
 
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
@@ -142,7 +149,7 @@ def generate_image_callback():
 
     print("generating image...")
 
-    image = imagen.generate_image(
+    images = imagen.generate_image(
         prompt=prompt,
         negative_prompt=negative_prompt,
         size=size,
@@ -150,31 +157,43 @@ def generate_image_callback():
         guidance_scale=guidance_scale,
         step_count=step_count,
         seed=seed,
+        image_amount=image_amount,
         progress_callback=lambda step, *_: progress_callback(step, step_count),
     )
 
-    print("finished generating image; seed:", image.seed)
+    print("finished generating image; seeds:", ', '.join([str(image.seed) for image in images]))
 
     update_window_title()
-    update_image(image.contents, image.width, image.height)
-
-    current_seed = image.seed
-
-    dpg.configure_item(
-        "save_button",
-        callback=lambda: save_image(image),
-    )
+    update_image(images[0])
 
     dpg.set_value("progress_bar", 0.0)
     dpg.configure_item("progress_bar", overlay="0%")
+    dpg.set_value("output_image_index", f"{image_index+1}/{len(images)}")
     dpg.set_value(
-        "info_text", f"Seed: {image.seed}\nTotal time: {time.time() - start_time:.1f}s"
+        "info_text", f"Current Image Seed: {images[0].seed}\nTotal time: {time.time() - start_time:.1f}s"
     )
 
     dpg.hide_item("progress_bar")
     dpg.show_item("info_text")
     dpg.show_item("seed_button")
     dpg.show_item("save_button")
+    dpg.show_item("output_image_group")
+
+def change_image(tag):
+    global image_index
+
+    if tag == 'next':
+        if image_index == len(images) - 1: return
+        image_index += 1
+    else:
+        if image_index == 0: return
+        image_index -= 1
+
+    update_image(images[image_index])
+    dpg.set_value("output_image_index", f"{image_index+1}/{len(images)}")
+    dpg.set_value(
+        "info_text", f"Current Image Seed: {images[image_index].seed}\n{dpg.get_value('info_text').splitlines()[1]}"
+    )
 
 
 def checkbox_callback(tag, value):
@@ -246,12 +265,19 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="step_count",
     )
+    dpg.add_input_int(
+        label="Amount of Images",
+        default_value=1,
+        min_value=1,
+        max_value=100,
+        width=config.ITEM_WIDTH,
+        tag="image_amount",
+    )
     dpg.add_input_text(
         label="Seed",
         width=config.ITEM_WIDTH,
         tag="seed",
     )
-
     dpg.add_checkbox(
         label="Disable Safety Checker",
         tag="safety_checker",
@@ -287,9 +313,15 @@ with dpg.window(tag="window"):
         dpg.add_button(
             label="Copy Seed",
             tag="seed_button",
-            callback=lambda: pyperclip.copy(current_seed),
+            callback=lambda: pyperclip.copy(images[image_index].seed),
             show=False
         )
+
+    with dpg.group(pos=(460, 7), show=False, tag="output_image_group"):
+        with dpg.group(horizontal=True, tag="output_image_selection"):
+            dpg.add_button(label="<", tag="previous", callback=change_image)
+            dpg.add_button(label=">", tag="next", callback=change_image)
+            dpg.add_text(tag="output_image_index")
 
     dpg.bind_font(default_font)
 
