@@ -5,6 +5,7 @@ from PIL.Image import Image
 from . import utils
 import numpy as np
 
+
 @dataclass(frozen=True)
 class UpscaledImage:
     model: str
@@ -19,25 +20,10 @@ class UpscaledImage:
 
 class ImageUpscalerLDM(BaseImagen):
     def __init__(self, model: str, device: str) -> None:
-        super().__init__(model, device)
+        super().__init__(model, device, LDMSuperResolutionPipeline)
 
-    def set_model(self, model: str) -> None:
-        print(f"loading {model} with {self._device}")
-
-        self._model = model
-        self._pipeline = LDMSuperResolutionPipeline.from_pretrained(model).to(self._device)
-
-        if self._attention_slicing_enabled:
-            self.enable_attention_slicing()
-
-        if self._vae_slicing_enabled:
-            self.enable_vae_slicing()
-
-        if self._xformers_memory_attention_enabled:
-            self.enable_xformers_memory_attention()
-
-        # remove progress bar logging
-        self._pipeline.set_progress_bar_config(disable=True)
+    def set_model(self, model: str):
+        self._set_model(model, LDMSuperResolutionPipeline)
 
     def upscale_image(
         self,

@@ -1,4 +1,5 @@
 from imagen.text2img import ImageGenerator, GeneratedImage
+from diffusers import schedulers
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
 import pyperclip
@@ -9,13 +10,45 @@ import time
 import os
 
 # Constants
+SCHEDULERS = [
+    "DDIMInverseScheduler",
+    "DDIMScheduler",
+    "DDPMScheduler",
+    "DEISMultistepScheduler",
+    "DPMSolverMultistepScheduler",
+    "DPMSolverSinglestepScheduler",
+    "EulerAncestralDiscreteScheduler",
+    "EulerDiscreteScheduler",
+    "FlaxDDIMScheduler",
+    "FlaxDDPMScheduler",
+    "FlaxDPMSolverMultistepScheduler",
+    "FlaxKarrasVeScheduler",
+    "FlaxLMSDiscreteScheduler",
+    "FlaxPNDMScheduler",
+    "FlaxScoreSdeVeScheduler",
+    "HeunDiscreteScheduler",
+    "IPNDMScheduler",
+    "KDPM2AncestralDiscreteScheduler",
+    "KDPM2DiscreteScheduler",
+    "KarrasVeScheduler",
+    "LMSDiscreteScheduler",
+    "PNDMScheduler",
+    "RePaintScheduler",
+    "ScoreSdeVeScheduler",
+    "ScoreSdeVpScheduler",
+    "UnCLIPScheduler",
+    "UniPCMultistepScheduler",
+    "VQDiffusionScheduler",
+]
 FILE_DIR = os.path.dirname(__file__)
-MODEL = utils.append_dir_if_startswith(config.DEFAULT_MODEL, FILE_DIR, 'models/')
+MODEL = utils.append_dir_if_startswith(config.DEFAULT_MODEL, FILE_DIR, "models/")
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 
 
 dpg.create_context()
-dpg.create_viewport(title=config.WINDOW_TITLE, width=config.WINDOW_SIZE[0], height=config.WINDOW_SIZE[1])
+dpg.create_viewport(
+    title=config.WINDOW_TITLE, width=config.WINDOW_SIZE[0], height=config.WINDOW_SIZE[1]
+)
 
 imagen = ImageGenerator(MODEL, config.DEVICE)
 imagen.disable_safety_checker()
@@ -26,16 +59,20 @@ last_step_time = None
 image_index = 0
 images = None
 
+
 def update_window_title(info: str = None):
-    dpg.set_viewport_title(f"{config.WINDOW_TITLE} - {info}" if info else config.WINDOW_TITLE)
+    dpg.set_viewport_title(
+        f"{config.WINDOW_TITLE} - {info}" if info else config.WINDOW_TITLE
+    )
+
 
 def save_image(image_info: GeneratedImage):
     global file_number
 
     saved_file_path = config.SAVE_FILE_PATTERN % file_number
 
-    dpg.set_item_label('save_button', 'Saving...')
-    update_window_title(f'Saving to {saved_file_path}...')
+    dpg.set_item_label("save_button", "Saving...")
+    update_window_title(f"Saving to {saved_file_path}...")
 
     metadata = PngInfo()
     metadata.add_text("model", image_info.model)
@@ -45,11 +82,14 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("guidance_scale", str(image_info.guidance_scale))
     metadata.add_text("step_count", str(image_info.step_count))
     metadata.add_text("seed", str(image_info.seed))
+    metadata.add_text("pipeline", image_info.pipeline.__name__)
+    metadata.add_text("scheduler", image_info.scheduler.__name__)
+    metadata.add_text("seed", str(image_info.seed))
 
     image_info.image.save(config.SAVE_FILE_PATTERN % file_number, pnginfo=metadata)
     file_number += 1
 
-    dpg.set_item_label('save_button', 'Save Image')
+    dpg.set_item_label("save_button", "Save Image")
     update_window_title()
 
 
@@ -72,7 +112,7 @@ def update_image(image: GeneratedImage):
         (image.width, image.height),
         (
             dpg.get_viewport_width(),
-            dpg.get_viewport_height() - 15,
+            dpg.get_viewport_height() - 25,
         ),  # subtraction to account for margin
     )
 
@@ -91,6 +131,7 @@ def update_image(image: GeneratedImage):
         "save_button",
         callback=lambda: save_image(image),
     )
+
 
 def progress_callback(step, step_count):
     global last_step_time
@@ -116,16 +157,20 @@ def generate_image_callback():
 
     image_index = 0
 
-    model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, 'models/')
+    model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
     if model != imagen.model:
-        dpg.show_item('info_text')
-        dpg.set_value('info_text', f'Loading {model}...')
-        update_window_title(f'Loading {model}...')
+        dpg.show_item("info_text")
+        dpg.set_value("info_text", f"Loading {model}...")
+        update_window_title(f"Loading {model}...")
 
         imagen.set_model(model)
 
-        dpg.hide_item('info_text')
+        dpg.hide_item("info_text")
         update_window_title()
+
+    scheduler = dpg.get_value("scheduler")
+    if scheduler != imagen.scheduler.__name__:
+        imagen.set_scheduler(getattr(schedulers, scheduler))
 
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
@@ -153,7 +198,7 @@ def generate_image_callback():
         prompt=prompt,
         negative_prompt=negative_prompt,
         size=size,
-        # strength / 100,
+        # strength=strength,
         guidance_scale=guidance_scale,
         step_count=step_count,
         seed=seed,
@@ -161,7 +206,10 @@ def generate_image_callback():
         progress_callback=lambda step, *_: progress_callback(step, step_count),
     )
 
-    print("finished generating image; seeds:", ', '.join([str(image.seed) for image in images]))
+    print(
+        "finished generating image; seeds:",
+        ", ".join([str(image.seed) for image in images]),
+    )
 
     update_window_title()
     update_image(images[0])
@@ -170,7 +218,8 @@ def generate_image_callback():
     dpg.configure_item("progress_bar", overlay="0%")
     dpg.set_value("output_image_index", f"{image_index+1}/{len(images)}")
     dpg.set_value(
-        "info_text", f"Current Image Seed: {images[0].seed}\nTotal time: {time.time() - start_time:.1f}s"
+        "info_text",
+        f"Current Image Seed: {images[0].seed}\nTotal time: {time.time() - start_time:.1f}s",
     )
 
     dpg.hide_item("progress_bar")
@@ -179,43 +228,59 @@ def generate_image_callback():
     dpg.show_item("save_button")
     dpg.show_item("output_image_group")
 
+
 def change_image(tag):
     global image_index
 
-    if tag == 'next':
-        if image_index == len(images) - 1: return
+    if tag == "next":
+        if image_index == len(images) - 1:
+            return
         image_index += 1
     else:
-        if image_index == 0: return
+        if image_index == 0:
+            return
         image_index -= 1
 
     update_image(images[image_index])
     dpg.set_value("output_image_index", f"{image_index+1}/{len(images)}")
     dpg.set_value(
-        "info_text", f"Current Image Seed: {images[image_index].seed}\n{dpg.get_value('info_text').splitlines()[1]}"
+        "info_text",
+        f"Current Image Seed: {images[image_index].seed}\n{dpg.get_value('info_text').splitlines()[1]}",
     )
 
 
 def checkbox_callback(tag, value):
-    func_name = ('enable_' if value else 'disable_') + tag
+    func_name = ("enable_" if value else "disable_") + tag
     getattr(imagen, func_name)()
+
 
 def toggle_xformers(tag, value):
     if not torch.cuda.is_available():
-        dpg.set_value('xformers_memory_attention', False)
-        dpg.show_item('info_text')
-        dpg.set_value('info_text', 'xformers is only available for GPUs')
-        print('xformers is only available for GPUs')
+        dpg.set_value("xformers_memory_attention", False)
+        dpg.show_item("info_text")
+        dpg.set_value("info_text", "xformers is only available for GPUs")
+        print("xformers is only available for GPUs")
         return
 
     try:
         checkbox_callback(tag, value)
     except ModuleNotFoundError:
         imagen.disable_xformers_memory_attention()
-        dpg.set_value('xformers_memory_attention', False)
-        dpg.show_item('info_text')
-        dpg.set_value('info_text', 'xformers is not installed, please run `pip3 install xformers`')
-        print("xformers is not installed, please run \033[1mpip3 install xformers\033[0m")
+        dpg.set_value("xformers_memory_attention", False)
+        dpg.show_item("info_text")
+        dpg.set_value(
+            "info_text", "xformers is not installed, please run `pip3 install xformers`"
+        )
+        print(
+            "xformers is not installed, please run \033[1mpip3 install xformers\033[0m"
+        )
+
+
+def toggle_advanced_config():
+    if dpg.is_item_shown("advanced_config"):
+        dpg.hide_item("advanced_config")
+    else:
+        dpg.show_item("advanced_config")
 
 
 # register font
@@ -224,10 +289,15 @@ with dpg.font_registry():
 
 with dpg.window(tag="window"):
     dpg.add_input_text(
-        label="Model", default_value=config.DEFAULT_MODEL, width=config.ITEM_WIDTH, tag="model"
+        label="Model",
+        default_value=config.DEFAULT_MODEL,
+        width=config.ITEM_WIDTH,
+        tag="model",
     )
     dpg.add_input_text(label="Prompt", width=config.ITEM_WIDTH, tag="prompt")
-    dpg.add_input_text(label="Negative Prompt", width=config.ITEM_WIDTH, tag="negative_prompt")
+    dpg.add_input_text(
+        label="Negative Prompt", width=config.ITEM_WIDTH, tag="negative_prompt"
+    )
     dpg.add_input_int(
         label="Width",
         default_value=config.DEFAULT_IMAGE_SIZE[0],
@@ -242,10 +312,12 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="image_height",
     )
-    # dpg.add_input_int(
+    # dpg.add_input_float(
     #     label="Strength",
-    #     default_value=80,
-    #     max_value=100,
+    #     default_value=0.8,
+    #     min_value=0.0,
+    #     max_value=1.0,
+    #     format="%.1f",
     #     width=config.ITEM_WIDTH,
     #     tag="strength",
     # )
@@ -259,7 +331,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_int(
         label="Step Count",
-        default_value=10,
+        default_value=20,
         min_value=1,
         max_value=500,
         width=config.ITEM_WIDTH,
@@ -278,33 +350,45 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="seed",
     )
-    dpg.add_checkbox(
-        label="Disable Safety Checker",
-        tag="safety_checker",
-        default_value=True,
-        callback=lambda tag, value: checkbox_callback(tag, not value),
-    )
-    dpg.add_checkbox(
-        label="Enable Attention Slicing",
-        tag="attention_slicing",
-        default_value=True,
-        callback=checkbox_callback,
-    )
-    dpg.add_checkbox(
-        label="Enable Vae Slicing",
-        tag="vae_slicing",
-        default_value=False,
-        callback=checkbox_callback,
-    )
-    dpg.add_checkbox(
-        label="Enable xFormers Memory Efficient Attention",
-        tag="xformers_memory_attention",
-        default_value=False,
-        callback=toggle_xformers,
-    )
+    dpg.add_button(label="Advanced Configuration", callback=toggle_advanced_config)
+
+    with dpg.group(tag="advanced_config", show=False):
+        dpg.add_combo(
+            label="Scheduler",
+            items=SCHEDULERS,
+            default_value="DPMSolverMultistepScheduler",
+            width=config.ITEM_WIDTH,
+            tag="scheduler",
+        )
+        dpg.add_checkbox(
+            label="Disable Safety Checker",
+            tag="safety_checker",
+            default_value=True,
+            callback=lambda tag, value: checkbox_callback(tag, not value),
+        )
+        dpg.add_checkbox(
+            label="Enable Attention Slicing",
+            tag="attention_slicing",
+            default_value=True,
+            callback=checkbox_callback,
+        )
+        dpg.add_checkbox(
+            label="Enable Vae Slicing",
+            tag="vae_slicing",
+            default_value=False,
+            callback=checkbox_callback,
+        )
+        dpg.add_checkbox(
+            label="Enable xFormers Memory Efficient Attention",
+            tag="xformers_memory_attention",
+            default_value=False,
+            callback=toggle_xformers,
+        )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)
-    dpg.add_progress_bar(overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False)
+    dpg.add_progress_bar(
+        overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
+    )
 
     dpg.add_button(label="Save Image", tag="save_button", show=False)
 
@@ -314,7 +398,7 @@ with dpg.window(tag="window"):
             label="Copy Seed",
             tag="seed_button",
             callback=lambda: pyperclip.copy(images[image_index].seed),
-            show=False
+            show=False,
         )
 
     with dpg.group(pos=(460, 7), show=False, tag="output_image_group"):
