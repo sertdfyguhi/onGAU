@@ -356,7 +356,7 @@ with dpg.window(tag="window"):
         dpg.add_combo(
             label="Scheduler",
             items=SCHEDULERS,
-            default_value="DPMSolverMultistepScheduler",
+            default_value=imagen.scheduler.__name__,
             width=config.ITEM_WIDTH,
             tag="scheduler",
         )
