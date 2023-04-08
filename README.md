@@ -18,15 +18,9 @@ git clone https://github.com/sertdfyguhi/onGAU.git
 pip3 install -r requirements.txt
 ```
 
-3. i also recommend you to install `transformers` and `accelerate`
+3. set the model (from huggingface or locally in `onGAU/models` folder in diffusers format), device, and other configuration in `onGAU/config.py`
 
-```sh
-pip3 install transformers accelerate
-```
-
-4. set the model (from huggingface or locally in `onGAU/models` folder in diffusers format), device, and other configuration in `onGAU/config.py`
-
-5. run `onGAU/main.py`
+4. run `onGAU/main.py`
 
 ```sh
 python3 onGAU/main.py
