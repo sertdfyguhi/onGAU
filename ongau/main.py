@@ -8,6 +8,7 @@ import torch
 import utils
 import time
 import os
+import re
 
 # Constants
 SCHEDULERS = [
@@ -179,7 +180,17 @@ def generate_image_callback():
     step_count = dpg.get_value("step_count")
     image_amount = dpg.get_value("image_amount")
     seed = dpg.get_value("seed")
-    seed = int(seed) if seed.isdigit() else None
+    if seed:
+        try:
+            seed = (
+                int(seed)
+                if seed.isdigit()
+                else [int(s) for s in re.split(r"[, ]+", seed)]
+            )
+        except ValueError:
+            dpg.set_value("info_text", "seeds provided are not integers")
+            dpg.show_item("info_text")
+            return
 
     if dpg.does_item_exist("output_image"):
         dpg.hide_item("output_image_group")
@@ -193,17 +204,32 @@ def generate_image_callback():
 
     print("generating image...")
 
-    images = imagen.generate_image(
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        size=size,
-        # strength=strength,
-        guidance_scale=guidance_scale,
-        step_count=step_count,
-        seed=seed,
-        image_amount=image_amount,
-        progress_callback=lambda step, *_: progress_callback(step, step_count),
-    )
+    if type(seed) == list and imagen.device == "mps":
+        images = [
+            imagen.generate_image(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                size=size,
+                # strength=strength,
+                guidance_scale=guidance_scale,
+                step_count=step_count,
+                seed=seed[i % len(seed)],
+                progress_callback=lambda step, *_: progress_callback(step, step_count),
+            )[0]
+            for i in range(image_amount)
+        ]
+    else:
+        images = imagen.generate_image(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            size=size,
+            # strength=strength,
+            guidance_scale=guidance_scale,
+            step_count=step_count,
+            seed=seed,
+            image_amount=image_amount,
+            progress_callback=lambda step, *_: progress_callback(step, step_count),
+        )
 
     print(
         "finished generating image; seeds:",

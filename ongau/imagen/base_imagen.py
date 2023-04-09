@@ -20,6 +20,10 @@ class BaseImagen:
         return self._model
 
     @property
+    def device(self):
+        return self._device
+
+    @property
     def scheduler(self):
         return self._scheduler
 

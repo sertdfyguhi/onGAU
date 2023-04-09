@@ -41,7 +41,7 @@ class ImageGenerator(BaseImagen):
         guidance_scale: float = 7.5,
         step_count: int = 25,
         image_amount: int = 1,
-        seed: int = None,
+        seed: int | list[int] = None,
         progress_callback: Callable = None,
     ) -> list[GeneratedImage]:
         generators, seeds = utils.create_torch_generator(
