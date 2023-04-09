@@ -81,7 +81,6 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("strength", str(image_info.strength))
     metadata.add_text("guidance_scale", str(image_info.guidance_scale))
     metadata.add_text("step_count", str(image_info.step_count))
-    metadata.add_text("seed", str(image_info.seed))
     metadata.add_text("pipeline", image_info.pipeline.__name__)
     metadata.add_text("scheduler", image_info.scheduler.__name__)
     metadata.add_text("seed", str(image_info.seed))
@@ -112,7 +111,7 @@ def update_image(image: GeneratedImage):
         (image.width, image.height),
         (
             dpg.get_viewport_width(),
-            dpg.get_viewport_height() - 25,
+            dpg.get_viewport_height() - 26,
         ),  # subtraction to account for margin
     )
 

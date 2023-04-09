@@ -2,6 +2,7 @@ from PIL.Image import Image
 import numpy as np
 import torch
 
+
 def convert_PIL_to_DPG_image(pil_image: Image):
     # create np array and flatten
     array = np.ravel(np.array(pil_image))
@@ -12,11 +13,13 @@ def convert_PIL_to_DPG_image(pil_image: Image):
 
     return array
 
-def create_torch_generator(seed: int | None, device: str, generator_amount: int):
-    if seed: return (
-        [torch.Generator(device=device).manual_seed(seed)] * generator_amount,
-        [seed] * generator_amount
-    )
+
+def create_torch_generator(seed: int | None, device: str, generator_amount: int = 1):
+    if seed:
+        return (
+            [torch.Generator(device=device).manual_seed(seed)] * generator_amount,
+            [seed] * generator_amount,
+        )
 
     generators = []
     seeds = []

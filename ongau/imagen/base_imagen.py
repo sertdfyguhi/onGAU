@@ -42,7 +42,8 @@ class BaseImagen:
         self._pipeline.set_progress_bar_config(disable=True)
 
         # make a copy of the safety checker to be able to enable and disable it
-        self._orig_safety_checker = self._pipeline.safety_checker
+        if hasattr(self._pipeline, "safety_checker"):
+            self._orig_safety_checker = self._pipeline.safety_checker
 
         if not self._safety_checker_enabled:
             self.disable_safety_checker()
@@ -67,11 +68,12 @@ class BaseImagen:
         )
 
     def enable_safety_checker(self):
-        self._safety_checker_enabled = True
-        self._pipeline.safety_checker = self._orig_safety_checker
+        if hasattr(self._pipeline, "safety_checker"):
+            self._safety_checker_enabled = True
+            self._pipeline.safety_checker = self._orig_safety_checker
 
     def disable_safety_checker(self):
-        if self._pipeline.safety_checker:
+        if hasattr(self._pipeline, "safety_checker") and self._pipeline.safety_checker:
             self._safety_checker_enabled = False
             self._pipeline.safety_checker = lambda images, clip_input: (images, False)
 

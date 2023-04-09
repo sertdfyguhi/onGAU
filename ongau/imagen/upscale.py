@@ -20,7 +20,7 @@ class UpscaledImage:
 
 class ImageUpscalerLDM(BaseImagen):
     def __init__(self, model: str, device: str) -> None:
-        super().__init__(model, device, LDMSuperResolutionPipeline)
+        super().__init__(model, device)
 
     def set_model(self, model: str):
         self._set_model(model, LDMSuperResolutionPipeline)
