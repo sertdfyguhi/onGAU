@@ -53,7 +53,9 @@ dpg.create_viewport(
 
 imagen = Text2Img(MODEL, config.DEVICE)
 imagen.disable_safety_checker()
-imagen.enable_attention_slicing()
+
+if imagen.device == "mps":
+    imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
 
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 last_step_time = None
@@ -373,25 +375,25 @@ with dpg.window(tag="window"):
         dpg.add_checkbox(
             label="Disable Safety Checker",
             tag="safety_checker",
-            default_value=True,
+            default_value=not imagen.safety_checker_enabled,
             callback=lambda tag, value: checkbox_callback(tag, not value),
         )
         dpg.add_checkbox(
             label="Enable Attention Slicing",
             tag="attention_slicing",
-            default_value=True,
+            default_value=imagen.attention_slicing_enabled,
             callback=checkbox_callback,
         )
         dpg.add_checkbox(
             label="Enable Vae Slicing",
             tag="vae_slicing",
-            default_value=False,
+            default_value=imagen.vae_slicing_enabled,
             callback=checkbox_callback,
         )
         dpg.add_checkbox(
             label="Enable xFormers Memory Efficient Attention",
             tag="xformers_memory_attention",
-            default_value=False,
+            default_value=imagen.xformers_memory_attention_enabled,
             callback=toggle_xformers,
         )
 

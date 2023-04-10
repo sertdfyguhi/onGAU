@@ -31,6 +31,22 @@ class BaseImagen:
     def pipeline(self):
         return self._pipeline.__class__
 
+    @property
+    def safety_checker_enabled(self):
+        return self._safety_checker_enabled
+
+    @property
+    def attention_slicing_enabled(self):
+        return self._attention_slicing_enabled
+
+    @property
+    def vae_slicing_enabled(self):
+        return self._vae_slicing_enabled
+
+    @property
+    def xformers_memory_attention_enabled(self):
+        return self._xformers_memory_attention_enabled
+
     def _set_model(
         self, model: str, pipeline=DiffusionPipeline, scheduler: SchedulerMixin = None
     ) -> None:
