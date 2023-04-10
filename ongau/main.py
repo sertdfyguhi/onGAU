@@ -1,7 +1,8 @@
 from imagen.text2img import Text2Img, GeneratedImage
-from diffusers import schedulers
+from texture_manager import TextureManager
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
+from diffusers import schedulers
 import pyperclip
 import config
 import torch
@@ -51,6 +52,8 @@ dpg.create_viewport(
     title=config.WINDOW_TITLE, width=config.WINDOW_SIZE[0], height=config.WINDOW_SIZE[1]
 )
 
+texture_manager = TextureManager(dpg.add_texture_registry())
+
 imagen = Text2Img(MODEL, config.DEVICE)
 imagen.disable_safety_checker()
 
@@ -59,8 +62,6 @@ if imagen.device == "mps":
 
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 last_step_time = None
-image_index = 0
-images = None
 
 
 def update_window_title(info: str = None):
@@ -95,39 +96,31 @@ def save_image(image_info: GeneratedImage):
     update_window_title()
 
 
-def update_image(image: GeneratedImage):
-    with dpg.texture_registry():
-        if dpg.does_item_exist("output_image"):
-            dpg.delete_item("output_image")
-            dpg.delete_item("output_image_item")
-
-        dpg.add_static_texture(
-            width=image.width,
-            height=image.height,
-            default_value=image.contents,
-            tag="output_image",
-        )
-
-    # print("before image_widget_size calculation")
-
+def update_image(texture_tag: str | int, image: GeneratedImage):
     image_widget_size = utils.resize_size_to_fit(
         (image.width, image.height),
         (
             dpg.get_viewport_width(),
-            dpg.get_viewport_height() - 26,
+            dpg.get_viewport_height() - 42,
         ),  # subtraction to account for margin
     )
 
-    # print(image_widget_size)
-
-    dpg.add_image(
-        "output_image",
-        width=image_widget_size[0],
-        height=image_widget_size[1],
-        tag="output_image_item",
-        before="output_image_selection",
-        parent="output_image_group",
-    )
+    if dpg.does_item_exist("output_image_item"):
+        dpg.configure_item(
+            "output_image_item",
+            texture_tag=texture_manager.current()[0],
+            width=image_widget_size[0],
+            height=image_widget_size[1],
+        )
+    else:
+        dpg.add_image(
+            texture_tag,
+            width=image_widget_size[0],
+            height=image_widget_size[1],
+            tag="output_image_item",
+            before="output_image_selection",
+            parent="output_image_group",
+        )
 
     dpg.configure_item(
         "save_button",
@@ -155,9 +148,7 @@ def progress_callback(step, step_count):
 
 
 def generate_image_callback():
-    global last_step_time, image_index, images
-
-    image_index = 0
+    global last_step_time
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
     if model != imagen.model:
@@ -194,44 +185,44 @@ def generate_image_callback():
             dpg.show_item("info_text")
             return
 
-    if dpg.does_item_exist("output_image"):
-        dpg.hide_item("output_image_group")
-
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
     dpg.hide_item("info_text")
     dpg.hide_item("seed_button")
+    dpg.hide_item("output_image_group")
 
     last_step_time = start_time = time.time()
 
     print("generating image...")
 
-    images = imagen.generate_image(
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        size=size,
-        # strength=strength,
-        guidance_scale=guidance_scale,
-        step_count=step_count,
-        seed=seed,
-        image_amount=image_amount,
-        progress_callback=lambda step, *_: progress_callback(step, step_count),
+    texture_manager.prepare(
+        imagen.generate_image(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            size=size,
+            # strength=strength,
+            guidance_scale=guidance_scale,
+            step_count=step_count,
+            seed=seed,
+            image_amount=image_amount,
+            progress_callback=lambda step, *_: progress_callback(step, step_count),
+        )
     )
 
     print(
         "finished generating image; seeds:",
-        ", ".join([str(image.seed) for image in images]),
+        ", ".join([str(image.seed) for image in texture_manager.images]),
     )
 
     update_window_title()
-    update_image(images[0])
+    update_image(*texture_manager.current())
 
     dpg.set_value("progress_bar", 0.0)
     dpg.configure_item("progress_bar", overlay="0%")
-    dpg.set_value("output_image_index", f"{image_index+1}/{len(images)}")
+    dpg.set_value("output_image_index", texture_manager.to_counter_string())
     dpg.set_value(
         "info_text",
-        f"Current Image Seed: {images[0].seed}\nTotal time: {time.time() - start_time:.1f}s",
+        f"Current Image Seed: {texture_manager.images[0].seed}\nTotal time: {time.time() - start_time:.1f}s",
     )
 
     dpg.hide_item("progress_bar")
@@ -245,20 +236,17 @@ def change_image(tag):
     global image_index
 
     if tag == "next":
-        if image_index == len(images) - 1:
-            return
-        image_index += 1
+        current = texture_manager.next()
     else:
-        if image_index == 0:
-            return
-        image_index -= 1
+        current = texture_manager.previous()
 
-    update_image(images[image_index])
-    dpg.set_value("output_image_index", f"{image_index+1}/{len(images)}")
-    dpg.set_value(
-        "info_text",
-        f"Current Image Seed: {images[image_index].seed}\n{dpg.get_value('info_text').splitlines()[1]}",
-    )
+    if current:
+        update_image(*current)
+        dpg.set_value("output_image_index", texture_manager.to_counter_string())
+        dpg.set_value(
+            "info_text",
+            f"Current Image Seed: {current[1].seed}\n{chr(10).join(dpg.get_value('info_text').splitlines()[1:])}",
+        )
 
 
 def checkbox_callback(tag, value):
@@ -409,7 +397,7 @@ with dpg.window(tag="window"):
         dpg.add_button(
             label="Copy Seed",
             tag="seed_button",
-            callback=lambda: pyperclip.copy(images[image_index].seed),
+            callback=lambda: pyperclip.copy(texture_manager.current()[1].seed),
             show=False,
         )
 
