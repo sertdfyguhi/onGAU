@@ -1,1 +1,1 @@
-from . import text2img, upscale
+from . import text2img, img2img, upscale

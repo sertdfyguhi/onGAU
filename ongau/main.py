@@ -1,4 +1,4 @@
-from imagen.text2img import ImageGenerator, GeneratedImage
+from imagen.text2img import Text2Img, GeneratedImage
 from diffusers import schedulers
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
@@ -51,7 +51,7 @@ dpg.create_viewport(
     title=config.WINDOW_TITLE, width=config.WINDOW_SIZE[0], height=config.WINDOW_SIZE[1]
 )
 
-imagen = ImageGenerator(MODEL, config.DEVICE)
+imagen = Text2Img(MODEL, config.DEVICE)
 imagen.disable_safety_checker()
 imagen.enable_attention_slicing()
 
@@ -204,32 +204,17 @@ def generate_image_callback():
 
     print("generating image...")
 
-    if type(seed) == list and imagen.device == "mps":
-        images = [
-            imagen.generate_image(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                size=size,
-                # strength=strength,
-                guidance_scale=guidance_scale,
-                step_count=step_count,
-                seed=seed[i % len(seed)],
-                progress_callback=lambda step, *_: progress_callback(step, step_count),
-            )[0]
-            for i in range(image_amount)
-        ]
-    else:
-        images = imagen.generate_image(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            size=size,
-            # strength=strength,
-            guidance_scale=guidance_scale,
-            step_count=step_count,
-            seed=seed,
-            image_amount=image_amount,
-            progress_callback=lambda step, *_: progress_callback(step, step_count),
-        )
+    images = imagen.generate_image(
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        size=size,
+        # strength=strength,
+        guidance_scale=guidance_scale,
+        step_count=step_count,
+        seed=seed,
+        image_amount=image_amount,
+        progress_callback=lambda step, *_: progress_callback(step, step_count),
+    )
 
     print(
         "finished generating image; seeds:",

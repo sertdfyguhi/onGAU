@@ -1,5 +1,5 @@
 from diffusers import LDMSuperResolutionPipeline
-from .base_imagen import BaseImagen
+from .base import BaseImagen
 from dataclasses import dataclass
 from PIL.Image import Image
 from . import utils

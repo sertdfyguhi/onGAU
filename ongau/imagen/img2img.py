@@ -1,42 +1,29 @@
-from diffusers import DiffusionPipeline, SchedulerMixin
+from diffusers import StableDiffusionImg2ImgPipeline
+from .text2img import GeneratedImage
 from .base import BaseImagen
 from dataclasses import dataclass
-from PIL.Image import Image
 from typing import Callable
+from PIL.Image import Image
 from . import utils
-import numpy as np
 
 
 @dataclass(frozen=True)
-class GeneratedImage:
-    model: str
-    contents: np.ndarray
-    image: Image
-    prompt: str
-    negative_prompt: str
-    strength: int
-    guidance_scale: int
-    step_count: int
-    seed: int
-    pipeline: DiffusionPipeline
-    scheduler: SchedulerMixin
-    width: int
-    height: int
+class Img2ImgGeneratedImage(GeneratedImage):
+    base_image: Image
 
 
-# stable diffusion model
-class Text2Img(BaseImagen):
+class SDImg2Img(BaseImagen):
     def __init__(self, model: str, device: str) -> None:
         super().__init__(model, device)
 
     def set_model(self, model: str):
-        self._set_model(model, DiffusionPipeline)
+        self._set_model(model, StableDiffusionImg2ImgPipeline)
 
     def generate_image(
         self,
+        base_image: Image,
         prompt: str,
         negative_prompt: str = "",
-        size: tuple[int, int] | list[int, int] = (512, 512),
         strength: float = 0.8,
         guidance_scale: float = 8.0,
         step_count: int = 25,
@@ -54,8 +41,6 @@ class Text2Img(BaseImagen):
                     prompt=prompt,
                     negative_prompt=negative_prompt,
                     generator=generators[i],
-                    width=size[0],
-                    height=size[1],
                     # strength=strength,
                     num_inference_steps=step_count,
                     guidance_scale=guidance_scale,
@@ -65,11 +50,10 @@ class Text2Img(BaseImagen):
             ]
         else:
             images = self._pipeline(
+                image=base_image,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 generator=generators,
-                width=size[0],
-                height=size[1],
                 num_inference_steps=step_count,
                 # strength=strength,
                 guidance_scale=guidance_scale,
@@ -83,7 +67,7 @@ class Text2Img(BaseImagen):
             image = image.convert("RGBA")
 
             result.append(
-                GeneratedImage(
+                Img2ImgGeneratedImage(
                     self._model,
                     utils.convert_PIL_to_DPG_image(image),
                     image,
@@ -96,6 +80,7 @@ class Text2Img(BaseImagen):
                     self.pipeline,
                     self.scheduler,
                     *image.size,
+                    base_image
                 )
             )
 
