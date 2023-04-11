@@ -81,7 +81,7 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("model", image_info.model)
     metadata.add_text("prompt", image_info.prompt)
     metadata.add_text("negative_prompt", image_info.negative_prompt)
-    metadata.add_text("strength", str(image_info.strength))
+    # metadata.add_text("strength", str(image_info.strength))
     metadata.add_text("guidance_scale", str(image_info.guidance_scale))
     metadata.add_text("step_count", str(image_info.step_count))
     metadata.add_text("pipeline", image_info.pipeline.__name__)
