@@ -344,6 +344,12 @@ with dpg.window(tag="window"):
             default_value=imagen.xformers_memory_attention_enabled,
             callback=toggle_xformers,
         )
+        dpg.add_checkbox(
+            label="Enable Compel Prompt Weighting",
+            tag="compel_weighting",
+            default_value=imagen.compel_weighting_enabled,
+            callback=checkbox_callback,
+        )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)
     dpg.add_progress_bar(

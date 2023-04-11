@@ -24,7 +24,7 @@ class SDImg2Img(BaseImagen):
         base_image: Image,
         prompt: str,
         negative_prompt: str = "",
-        strength: float = 0.8,
+        # strength: float = 0.8,
         guidance_scale: float = 8.0,
         step_count: int = 25,
         image_amount: int = 1,
@@ -35,11 +35,26 @@ class SDImg2Img(BaseImagen):
             seed, self._device, image_amount
         )
 
+        prompt_embeds = negative_prompt_embeds = None
+        temp_prompt = prompt
+        temp_negative_prompt = negative_prompt
+
+        if self._compel_weighting_enabled:
+            temp_prompt = temp_negative_prompt = None
+            prompt_embeds = self._compel.build_conditioning_tensor(prompt)
+            negative_prompt_embeds = self._compel.build_conditioning_tensor(
+                negative_prompt
+            )
+
         if (type(seed) == list or image_amount > 1) and self._device == "mps":
             images = [
                 self._pipeline(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
+                    image=base_image,
+                    prompt=temp_prompt,
+                    negative_prompt=temp_negative_prompt,
+                    prompt_embeds=prompt_embeds,
+                    negative_prompt_embeds=negative_prompt_embeds,
+                    generator=generators[i],
                     generator=generators[i],
                     # strength=strength,
                     num_inference_steps=step_count,
@@ -51,8 +66,11 @@ class SDImg2Img(BaseImagen):
         else:
             images = self._pipeline(
                 image=base_image,
-                prompt=prompt,
-                negative_prompt=negative_prompt,
+                prompt=temp_prompt,
+                negative_prompt=temp_negative_prompt,
+                prompt_embeds=prompt_embeds,
+                negative_prompt_embeds=negative_prompt_embeds,
+                generator=generators[i],
                 generator=generators,
                 num_inference_steps=step_count,
                 # strength=strength,

@@ -1,4 +1,5 @@
 from diffusers import SchedulerMixin, DiffusionPipeline
+from compel import Compel
 
 
 class BaseImagen:
@@ -13,6 +14,7 @@ class BaseImagen:
         self._attention_slicing_enabled = False
         self._vae_slicing_enabled = False
         self._xformers_memory_attention_enabled = False
+        self._compel_weighting_enabled = False
         self.set_model(model)
 
     @property
@@ -47,6 +49,10 @@ class BaseImagen:
     def xformers_memory_attention_enabled(self):
         return self._xformers_memory_attention_enabled
 
+    @property
+    def compel_weighting_enabled(self):
+        return self._compel_weighting_enabled
+
     def _set_model(
         self, model: str, pipeline=DiffusionPipeline, scheduler: SchedulerMixin = None
     ) -> None:
@@ -76,6 +82,9 @@ class BaseImagen:
 
         if self._xformers_memory_attention_enabled:
             self.enable_xformers_memory_attention()
+
+        if self._compel_weighting_enabled:
+            self.enable_compel_weighting()
 
     def set_device(self, device: str):
         self._device = device
@@ -120,3 +129,10 @@ class BaseImagen:
     def disable_xformers_memory_attention(self):
         self._xformers_memory_attention_enabled = False
         self._pipeline.disable_xformers_memory_efficient_attention()
+
+    def enable_compel_weighting(self):
+        self._compel_weighting_enabled = True
+        self._compel = Compel(self._pipeline.tokenizer, self._pipeline.text_encoder)
+
+    def disable_compel_weighting(self):
+        self._compel_weighting_enabled = False

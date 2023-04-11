@@ -47,11 +47,24 @@ class Text2Img(BaseImagen):
             seed, self._device, image_amount
         )
 
+        prompt_embeds = negative_prompt_embeds = None
+        temp_prompt = prompt
+        temp_negative_prompt = negative_prompt
+
+        if self._compel_weighting_enabled:
+            temp_prompt = temp_negative_prompt = None
+            prompt_embeds = self._compel.build_conditioning_tensor(prompt)
+            negative_prompt_embeds = self._compel.build_conditioning_tensor(
+                negative_prompt
+            )
+
         if (type(seed) == list or image_amount > 1) and self._device == "mps":
             images = [
                 self._pipeline(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
+                    prompt=temp_prompt,
+                    negative_prompt=temp_negative_prompt,
+                    prompt_embeds=prompt_embeds,
+                    negative_prompt_embeds=negative_prompt_embeds,
                     generator=generators[i],
                     width=size[0],
                     height=size[1],
@@ -64,8 +77,10 @@ class Text2Img(BaseImagen):
             ]
         else:
             images = self._pipeline(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
+                prompt=temp_prompt,
+                negative_prompt=temp_negative_prompt,
+                prompt_embeds=prompt_embeds,
+                negative_prompt_embeds=negative_prompt_embeds,
                 generator=generators,
                 width=size[0],
                 height=size[1],
