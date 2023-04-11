@@ -163,7 +163,11 @@ def generate_image_callback():
 
     start_time = time.time()
 
-    texture_manager.prepare(pipelines.text2img(imagen, progress_callback))
+    images = pipelines.text2img(imagen, progress_callback)
+    if not images:
+        return
+
+    texture_manager.prepare(images)
 
     print(
         "finished generating image; seeds:",
@@ -223,10 +227,10 @@ def toggle_xformers(tag, value):
     except ModuleNotFoundError:
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
-        dpg.show_item("info_text")
         dpg.set_value(
             "info_text", "xformers is not installed, please run `pip3 install xformers`"
         )
+        dpg.show_item("info_text")
         print(
             "xformers is not installed, please run \033[1mpip3 install xformers\033[0m"
         )

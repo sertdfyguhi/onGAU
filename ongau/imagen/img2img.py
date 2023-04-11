@@ -67,20 +67,20 @@ class SDImg2Img(BaseImagen):
             image = image.convert("RGBA")
 
             result.append(
-                Img2ImgGeneratedImage(
-                    self._model,
-                    utils.convert_PIL_to_DPG_image(image),
-                    image,
-                    prompt,
-                    negative_prompt,
-                    strength,
-                    guidance_scale,
-                    step_count,
-                    seeds[i],
-                    self.pipeline,
-                    self.scheduler,
-                    *image.size,
-                    base_image
+                GeneratedImage(
+                    base_image=base_image,
+                    model=self._model,
+                    image=image,
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    # strength=strength,
+                    guidance_scale=guidance_scale,
+                    step_count=step_count,
+                    seed=seeds[i],
+                    pipeline=self.pipeline,
+                    scheduler=self.scheduler,
+                    width=image.size[0],
+                    height=image.size[1],
                 )
             )
 

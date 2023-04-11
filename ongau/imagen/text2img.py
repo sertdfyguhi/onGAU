@@ -10,11 +10,10 @@ import numpy as np
 @dataclass(frozen=True)
 class GeneratedImage:
     model: str
-    contents: np.ndarray
     image: Image
     prompt: str
     negative_prompt: str
-    strength: int
+    # strength: int
     guidance_scale: int
     step_count: int
     seed: int
@@ -37,7 +36,7 @@ class Text2Img(BaseImagen):
         prompt: str,
         negative_prompt: str = "",
         size: tuple[int, int] | list[int, int] = (512, 512),
-        strength: float = 0.8,
+        # strength: float = 0.8,
         guidance_scale: float = 8.0,
         step_count: int = 25,
         image_amount: int = 1,
@@ -84,18 +83,18 @@ class Text2Img(BaseImagen):
 
             result.append(
                 GeneratedImage(
-                    self._model,
-                    utils.convert_PIL_to_DPG_image(image),
-                    image,
-                    prompt,
-                    negative_prompt,
-                    strength,
-                    guidance_scale,
-                    step_count,
-                    seeds[i],
-                    self.pipeline,
-                    self.scheduler,
-                    *image.size,
+                    model=self._model,
+                    image=image,
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    # strength=strength,
+                    guidance_scale=guidance_scale,
+                    step_count=step_count,
+                    seed=seeds[i],
+                    pipeline=self.pipeline,
+                    scheduler=self.scheduler,
+                    width=image.size[0],
+                    height=image.size[1],
                 )
             )
 

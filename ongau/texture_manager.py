@@ -1,5 +1,18 @@
 from imagen.text2img import GeneratedImage
 import dearpygui.dearpygui as dpg
+from PIL.Image import Image
+import numpy as np
+
+
+def _convert_PIL_to_DPG_image(pil_image: Image):
+    # create np array and flatten
+    array = np.ravel(np.array(pil_image))
+    # convert to float array
+    array = array.astype("float32")
+    # turn rgba values into floating point numbers
+    array = array / 255.0
+
+    return array
 
 
 class TextureManager:
@@ -23,7 +36,7 @@ class TextureManager:
                 dpg.add_static_texture(
                     width=image.width,
                     height=image.height,
-                    default_value=image.contents,
+                    default_value=_convert_PIL_to_DPG_image(image.image),
                     parent=self._texture_reg,
                 )
             )

@@ -1,21 +1,14 @@
 from diffusers import LDMSuperResolutionPipeline
-from .base import BaseImagen
+from .text2img import GeneratedImage
 from dataclasses import dataclass
+from .base import BaseImagen
 from PIL.Image import Image
 from . import utils
-import numpy as np
 
 
 @dataclass(frozen=True)
-class UpscaledImage:
-    model: str
-    contents: np.ndarray
-    image: Image
-    step_count: int
-    eta: int
-    seed: int
-    width: int
-    height: int
+class LDMUpscaledImage(GeneratedImage):
+    original_image: GeneratedImage
 
 
 class ImageUpscalerLDM(BaseImagen):
@@ -32,7 +25,7 @@ class ImageUpscalerLDM(BaseImagen):
         eta: int = 1,
         seed: int = None,
         # progress_callback: Callable = None
-    ) -> UpscaledImage:
+    ) -> LDMUpscaledImage:
         generator, gen_seed = utils.create_torch_generator(seed, self._device)
         image = (
             self._pipeline(
@@ -46,7 +39,7 @@ class ImageUpscalerLDM(BaseImagen):
             .convert("RGBA")
         )
 
-        return UpscaledImage(
+        return LDMUpscaledImage(
             self._model,
             utils.convert_PIL_to_DPG_image(image),
             image,

@@ -41,6 +41,7 @@ def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedIma
         except ValueError:
             dpg.set_value("info_text", "seeds provided are not integers")
             dpg.show_item("info_text")
+            dpg.hide_item("progress_bar")
             return
 
     last_step_time = time.time()

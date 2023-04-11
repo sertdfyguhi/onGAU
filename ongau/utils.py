@@ -1,5 +1,6 @@
 import os
 
+
 # edited and modified from https://stackoverflow.com/questions/17984809/how-do-i-create-an-incrementing-filename-in-python
 def next_file_number(path_pattern: str):
     """
@@ -51,8 +52,9 @@ def resize_size_to_fit(
 
     return resize_size_to_fit(result_image_size, window_size)
 
+
 def append_dir_if_startswith(path: str, dir: str, startswith: str):
-    '''Checks if a path starts with and if so appends a path to it'''
+    """Checks if a path starts with and if so appends a path to it"""
     if path.startswith(startswith):
         return os.path.join(dir, path)
     return path
