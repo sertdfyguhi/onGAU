@@ -32,8 +32,6 @@ python3 onGAU/main.py
 - [ ] Save and load prompts and config
 - [ ] Add img2img pipeline to UI
 - [ ] Add upscale pipeline to UI
-- [ ] Add strength argument (currently doesn't work)
 - [ ] Compile code into cross platform executable
-- [ ] Upscaler within the app
 - [ ] Optimize code
   - [ ] Use less memory when generating large images
