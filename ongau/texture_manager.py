@@ -28,21 +28,21 @@ class TextureManager:
                 )
             )
 
-    def next(self) -> list[str | int, GeneratedImage]:
+    def next(self) -> tuple[str | int, GeneratedImage]:
         if self._image_index == len(self._textures) - 1:
             return
 
         self._image_index += 1
         return self._textures[self._image_index], self._images[self._image_index]
 
-    def previous(self) -> list[str | int, GeneratedImage]:
+    def previous(self) -> tuple[str | int, GeneratedImage]:
         if self._image_index == 0:
             return
 
         self._image_index -= 1
         return self._textures[self._image_index], self._images[self._image_index]
 
-    def current(self) -> list[str | int, GeneratedImage]:
+    def current(self) -> tuple[str | int, GeneratedImage]:
         return self._textures[self._image_index], self._images[self._image_index]
 
     def clear(self):

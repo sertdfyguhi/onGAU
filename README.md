@@ -29,6 +29,8 @@ python3 onGAU/main.py
 ## Todo
 
 - [x] Show total generation time
+- [ ] Add img2img pipeline to UI
+- [ ] Add upscale pipeline to UI
 - [ ] Add strength argument (currently doesn't work)
 - [ ] Compile code into cross platform executable
 - [ ] Upscaler within the app

@@ -2,7 +2,7 @@ from imagen.text2img import Text2Img, GeneratedImage
 from texture_manager import TextureManager
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
-from diffusers import schedulers
+import pipelines
 import pyperclip
 import config
 import torch
@@ -61,7 +61,6 @@ if imagen.device == "mps":
     imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
 
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
-last_step_time = None
 
 
 def update_window_title(info: str = None):
@@ -128,10 +127,7 @@ def update_image(texture_tag: str | int, image: GeneratedImage):
     )
 
 
-def progress_callback(step, step_count):
-    global last_step_time
-
-    elapsed_time = time.time() - last_step_time
+def progress_callback(step: int, step_count: int, elapsed_time: float):
     progress = step / step_count
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
 
@@ -144,11 +140,15 @@ def progress_callback(step, step_count):
         "progress_bar", overlay=overlay if progress < 1 else "Loading..."
     )
 
-    last_step_time = time.time()
-
 
 def generate_image_callback():
     global last_step_time
+
+    dpg.show_item("progress_bar")
+    dpg.hide_item("save_button")
+    dpg.hide_item("info_text")
+    dpg.hide_item("seed_button")
+    dpg.hide_item("output_image_group")
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
     if model != imagen.model:
@@ -161,53 +161,9 @@ def generate_image_callback():
         dpg.hide_item("info_text")
         update_window_title()
 
-    scheduler = dpg.get_value("scheduler")
-    if scheduler != imagen.scheduler.__name__:
-        imagen.set_scheduler(getattr(schedulers, scheduler))
+    start_time = time.time()
 
-    prompt = dpg.get_value("prompt")
-    negative_prompt = dpg.get_value("negative_prompt")
-    size = dpg.get_values(["image_width", "image_height"])
-    # strength = dpg.get_value("strength")
-    guidance_scale = dpg.get_value("guidance_scale")
-    step_count = dpg.get_value("step_count")
-    image_amount = dpg.get_value("image_amount")
-    seed = dpg.get_value("seed")
-    if seed:
-        try:
-            seed = (
-                int(seed)
-                if seed.isdigit()
-                else [int(s) for s in re.split(r"[, ]+", seed)]
-            )
-        except ValueError:
-            dpg.set_value("info_text", "seeds provided are not integers")
-            dpg.show_item("info_text")
-            return
-
-    dpg.show_item("progress_bar")
-    dpg.hide_item("save_button")
-    dpg.hide_item("info_text")
-    dpg.hide_item("seed_button")
-    dpg.hide_item("output_image_group")
-
-    last_step_time = start_time = time.time()
-
-    print("generating image...")
-
-    texture_manager.prepare(
-        imagen.generate_image(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            size=size,
-            # strength=strength,
-            guidance_scale=guidance_scale,
-            step_count=step_count,
-            seed=seed,
-            image_amount=image_amount,
-            progress_callback=lambda step, *_: progress_callback(step, step_count),
-        )
-    )
+    texture_manager.prepare(pipelines.text2img(imagen, progress_callback))
 
     print(
         "finished generating image; seeds:",
