@@ -1,5 +1,6 @@
 dearpygui==1.8.0
 diffusers==0.14.0
+imagesize==1.4.1
 numpy==1.24.2
 Pillow==9.5.0
 pyperclip==1.8.2
