@@ -1,7 +1,7 @@
 from diffusers import StableDiffusionImg2ImgPipeline
 from .text2img import GeneratedImage
-from .base import BaseImagen
 from dataclasses import dataclass
+from .base import BaseImagen
 from typing import Callable
 from PIL.Image import Image
 from . import utils
@@ -55,7 +55,6 @@ class SDImg2Img(BaseImagen):
                     prompt_embeds=prompt_embeds,
                     negative_prompt_embeds=negative_prompt_embeds,
                     generator=generators[i],
-                    generator=generators[i],
                     # strength=strength,
                     num_inference_steps=step_count,
                     guidance_scale=guidance_scale,
@@ -70,7 +69,6 @@ class SDImg2Img(BaseImagen):
                 negative_prompt=temp_negative_prompt,
                 prompt_embeds=prompt_embeds,
                 negative_prompt_embeds=negative_prompt_embeds,
-                generator=generators[i],
                 generator=generators,
                 num_inference_steps=step_count,
                 # strength=strength,
@@ -85,7 +83,7 @@ class SDImg2Img(BaseImagen):
             image = image.convert("RGBA")
 
             result.append(
-                GeneratedImage(
+                Img2ImgGeneratedImage(
                     base_image=base_image,
                     model=self._model,
                     image=image,

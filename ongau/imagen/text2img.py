@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from PIL.Image import Image
 from typing import Callable
 from . import utils
-import numpy as np
 
 
 @dataclass(frozen=True)

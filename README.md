@@ -30,8 +30,9 @@ python3 onGAU/main.py
 
 - [x] Show total generation time
 - [ ] Save and load prompts and config
-- [ ] Add img2img pipeline to UI
+- [x] Add img2img pipeline to UI
 - [ ] Add upscale pipeline to UI
 - [ ] Compile code into cross platform executable
 - [ ] Optimize code
-  - [ ] Use less memory when generating large images
+  - [ ] Use less memory
+  - [ ] Use better code to get image size

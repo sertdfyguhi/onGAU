@@ -1,5 +1,4 @@
 from diffusers import SchedulerMixin, DiffusionPipeline
-from compel import Compel
 
 
 class BaseImagen:
@@ -10,6 +9,7 @@ class BaseImagen:
     ) -> None:
         self._model = model
         self._device = device
+        self._scheduler = None
         self._safety_checker_enabled = False
         self._attention_slicing_enabled = False
         self._vae_slicing_enabled = False
@@ -53,8 +53,35 @@ class BaseImagen:
     def compel_weighting_enabled(self):
         return self._compel_weighting_enabled
 
+    @classmethod
+    def from_class(cls, original):
+        c = cls(original.model, original.device)  # initialize class
+
+        if original.scheduler:
+            c.set_scheduler(original.scheduler)
+
+        if not original.safety_checker_enabled:
+            c.disable_safety_checker()
+
+        if original.attention_slicing_enabled:
+            c.enable_attention_slicing()
+
+        if original.vae_slicing_enabled:
+            c.enable_vae_slicing()
+
+        if original.xformers_memory_attention_enabled:
+            c.enable_xformers_memory_attention()
+
+        if original.compel_weighting_enabled:
+            c.enable_compel_weighting()
+
+        return c
+
     def _set_model(
-        self, model: str, pipeline=DiffusionPipeline, scheduler: SchedulerMixin = None
+        self,
+        model: str,
+        pipeline: DiffusionPipeline = DiffusionPipeline,
+        scheduler: SchedulerMixin = None,
     ) -> None:
         print(f"loading {model} with {self._device}")
 
@@ -62,6 +89,7 @@ class BaseImagen:
         self._pipeline = pipeline.from_pretrained(model).to(self._device)
         if scheduler:
             self.set_scheduler(scheduler)
+
         self._scheduler = self._pipeline.scheduler.__class__
 
         # remove progress bar logging
@@ -131,6 +159,14 @@ class BaseImagen:
         self._pipeline.disable_xformers_memory_efficient_attention()
 
     def enable_compel_weighting(self):
+        try:
+            from compel import Compel
+        except ModuleNotFoundError:
+            print(
+                "to enable compel prompt weighting you need compel. run \033[1mpip3 install compel\033[0m"
+            )
+            return
+
         self._compel_weighting_enabled = True
         self._compel = Compel(self._pipeline.tokenizer, self._pipeline.text_encoder)
 

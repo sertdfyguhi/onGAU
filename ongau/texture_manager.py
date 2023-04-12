@@ -27,7 +27,8 @@ class TextureManager:
         return self._images
 
     def prepare(self, images: list[GeneratedImage]) -> None:
-        self.clear()
+        if not self._textures:
+            self.clear()
 
         self._images = images
 

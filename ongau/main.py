@@ -1,15 +1,16 @@
-from imagen.text2img import Text2Img, GeneratedImage
+from imagen import Text2Img, SDImg2Img, GeneratedImage
 from texture_manager import TextureManager
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
+from diffusers import schedulers
+from torch import cuda
+import imagesize
 import pipelines
 import pyperclip
 import config
-import torch
 import utils
 import time
 import os
-import re
 
 # Constants
 SCHEDULERS = [
@@ -61,6 +62,7 @@ if imagen.device == "mps":
     imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
 
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
+base_image_aspect_ratio = None
 
 
 def update_window_title(info: str = None):
@@ -150,6 +152,8 @@ def generate_image_callback():
     dpg.hide_item("seed_button")
     dpg.hide_item("output_image_group")
 
+    texture_manager.clear()  # save memory
+
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
     if model != imagen.model:
         dpg.show_item("info_text")
@@ -161,9 +165,18 @@ def generate_image_callback():
         dpg.hide_item("info_text")
         update_window_title()
 
-    start_time = time.time()
+    scheduler = dpg.get_value("scheduler")
+    if scheduler != imagen.scheduler.__name__:
+        imagen.set_scheduler(getattr(schedulers, scheduler))
 
-    images = pipelines.text2img(imagen, progress_callback)
+    start_time = time.time()
+    imagen_type = type(imagen)
+
+    if imagen_type == Text2Img:
+        images = pipelines.text2img(imagen, progress_callback)
+    elif imagen_type == SDImg2Img:
+        images = pipelines.img2img(imagen, progress_callback)
+
     if not images:
         return
 
@@ -215,7 +228,7 @@ def checkbox_callback(tag, value):
 
 
 def toggle_xformers(tag, value):
-    if not torch.cuda.is_available():
+    if not cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
         dpg.show_item("info_text")
         dpg.set_value("info_text", "xformers is only available for GPUs")
@@ -232,7 +245,7 @@ def toggle_xformers(tag, value):
         )
         dpg.show_item("info_text")
         print(
-            "xformers is not installed, please run \033[1mpip3 install xformers\033[0m"
+            "to enable xformers memory attention you need xformers. run \033[1mpip3 install xformers\033[0m"
         )
 
 
@@ -241,6 +254,56 @@ def toggle_advanced_config():
         dpg.hide_item("advanced_config")
     else:
         dpg.show_item("advanced_config")
+
+
+def update_pipeline(_, pipeline):
+    global imagen
+
+    dpg.show_item("info_text")
+    dpg.set_value("info_text", f"Loading {pipeline}...")
+    update_window_title(f"Loading {pipeline}...")
+
+    match pipeline:
+        case "Text2Img":
+            imagen = Text2Img.from_class(imagen)
+            dpg.hide_item("base_image_path")
+        case "Img2Img":
+            imagen = SDImg2Img.from_class(imagen)
+            dpg.show_item("base_image_path")
+
+    dpg.hide_item("info_text")
+    update_window_title()
+
+
+def image_size_calc(tag, value):
+    if base_image_aspect_ratio and type(imagen) == SDImg2Img:
+        if tag == "width":
+            dpg.set_value("height", value / base_image_aspect_ratio)
+        else:
+            dpg.set_value("width", value * base_image_aspect_ratio)
+
+
+def base_image_path_callback():
+    global base_image_aspect_ratio
+
+    base_image_path = dpg.get_value("base_image_path")
+    if not os.path.isfile(base_image_path):
+        dpg.show_item("info_text")
+        dpg.set_value("info_text", "base image path does not exist")
+        return
+
+    image_size = imagesize.get(base_image_path)
+    if image_size == (-1, -1):
+        dpg.show_item("info_text")
+        dpg.set_value("info_text", "base image path is not an image file")
+        return
+
+    base_image_aspect_ratio = image_size[0] / image_size[1]
+
+    dpg.set_value("width", image_size[0])
+    dpg.set_value("height", image_size[1])
+
+    dpg.hide_item("info_text")  # to remove any errors shown before
 
 
 # register font
@@ -263,14 +326,16 @@ with dpg.window(tag="window"):
         default_value=config.DEFAULT_IMAGE_SIZE[0],
         min_value=1,
         width=config.ITEM_WIDTH,
-        tag="image_width",
+        callback=image_size_calc,
+        tag="width",
     )
     dpg.add_input_int(
         label="Height",
         default_value=config.DEFAULT_IMAGE_SIZE[1],
         min_value=1,
         width=config.ITEM_WIDTH,
-        tag="image_height",
+        callback=image_size_calc,
+        tag="height",
     )
     # dpg.add_input_float(
     #     label="Strength",
@@ -310,9 +375,30 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="seed",
     )
+
+    # file dialog to be used
+    # with dpg.group(horizontal=True):
+    #     btn = dpg.add_button(label="Choose...")
+    dpg.add_input_text(
+        # readonly=True,
+        label="Base Image Path",
+        width=config.ITEM_WIDTH,
+        tag="base_image_path",
+        callback=base_image_path_callback,
+        show=False,
+    )
+
     dpg.add_button(label="Advanced Configuration", callback=toggle_advanced_config)
 
     with dpg.group(tag="advanced_config", show=False):
+        dpg.add_combo(
+            label="Pipeline",
+            items=["Text2Img", "Img2Img"],
+            default_value="Text2Img",
+            width=config.ITEM_WIDTH,
+            callback=update_pipeline,
+            tag="pipeline",
+        )
         dpg.add_combo(
             label="Scheduler",
             items=SCHEDULERS,

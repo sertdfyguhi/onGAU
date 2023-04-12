@@ -19,9 +19,9 @@ def create_torch_generator(
         if seed:
             gen.manual_seed(s := seed[i % len(seed)])
             seeds.append(s)
-            generators.append(gen)
         else:
             seeds.append(gen.seed())
-            generators.append(gen)
+
+        generators.append(gen)
 
     return generators, seeds
