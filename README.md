@@ -35,4 +35,4 @@ python3 onGAU/main.py
 - [ ] Compile code into cross platform executable
 - [ ] Optimize code
   - [ ] Use less memory
-  - [ ] Use better code to get image size
+  - [x] Use better code to get image size

@@ -57,7 +57,7 @@ class Text2Img(BaseImagen):
                 negative_prompt
             )
 
-        if (type(seed) == list or image_amount > 1) and self._device == "mps":
+        if self._device == "mps" and len(seeds) > 1:
             images = [
                 self._pipeline(
                     prompt=temp_prompt,
