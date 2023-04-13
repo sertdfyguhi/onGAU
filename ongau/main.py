@@ -71,6 +71,11 @@ def update_window_title(info: str = None):
     )
 
 
+def status(msg: str):
+    dpg.set_value("status_text", msg)
+    dpg.show_item("status_text")
+
+
 def save_image(image_info: GeneratedImage):
     global file_number
 
@@ -89,6 +94,8 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("pipeline", image_info.pipeline.__name__)
     metadata.add_text("scheduler", image_info.scheduler.__name__)
     metadata.add_text("seed", str(image_info.seed))
+    if type(imagen) == SDImg2Img:
+        metadata.add_text("base_image_path", image_info.base_image.filename)
 
     image_info.image.save(config.SAVE_FILE_PATTERN % file_number, pnginfo=metadata)
     file_number += 1
@@ -148,21 +155,19 @@ def generate_image_callback():
 
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
-    dpg.hide_item("info_text")
-    dpg.hide_item("seed_button")
+    dpg.hide_item("info_group")
     dpg.hide_item("output_image_group")
 
     texture_manager.clear()  # save memory
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
     if model != imagen.model:
-        dpg.show_item("info_text")
-        dpg.set_value("info_text", f"Loading {model}...")
+        status(f"Loading {model}...")
         update_window_title(f"Loading {model}...")
 
         imagen.set_model(model)
 
-        dpg.hide_item("info_text")
+        dpg.hide_item("status_text")
         update_window_title()
 
     scheduler = dpg.get_value("scheduler")
@@ -199,8 +204,7 @@ def generate_image_callback():
     )
 
     dpg.hide_item("progress_bar")
-    dpg.show_item("info_text")
-    dpg.show_item("seed_button")
+    dpg.show_item("info_group")
     dpg.show_item("save_button")
     dpg.show_item("output_image_group")
 
@@ -230,8 +234,7 @@ def checkbox_callback(tag, value):
 def toggle_xformers(tag, value):
     if not cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
-        dpg.show_item("info_text")
-        dpg.set_value("info_text", "xformers is only available for GPUs")
+        status("xformers is only available for GPUs")
         print("xformers is only available for GPUs")
         return
 
@@ -240,10 +243,9 @@ def toggle_xformers(tag, value):
     except ModuleNotFoundError:
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
-        dpg.set_value(
-            "info_text", "xformers is not installed, please run `pip3 install xformers`"
+        status(
+            "to enable xformers memory attention you need xformers. run `pip3 install xformers`"
         )
-        dpg.show_item("info_text")
         print(
             "to enable xformers memory attention you need xformers. run \033[1mpip3 install xformers\033[0m"
         )
@@ -259,8 +261,7 @@ def toggle_advanced_config():
 def update_pipeline(_, pipeline):
     global imagen
 
-    dpg.show_item("info_text")
-    dpg.set_value("info_text", f"Loading {pipeline}...")
+    status(f"Loading {pipeline}...")
     update_window_title(f"Loading {pipeline}...")
 
     match pipeline:
@@ -271,7 +272,7 @@ def update_pipeline(_, pipeline):
             imagen = SDImg2Img.from_class(imagen)
             dpg.show_item("base_image_path")
 
-    dpg.hide_item("info_text")
+    dpg.hide_item("status_text")
     update_window_title()
 
 
@@ -288,14 +289,12 @@ def base_image_path_callback():
 
     base_image_path = dpg.get_value("base_image_path")
     if not os.path.isfile(base_image_path):
-        dpg.show_item("info_text")
-        dpg.set_value("info_text", "base image path does not exist")
+        status("base image path does not exist")
         return
 
     image_size = imagesize.get(base_image_path)
     if image_size == (-1, -1):
-        dpg.show_item("info_text")
-        dpg.set_value("info_text", "base image path is not an image file")
+        status("base image path is not an image file")
         return
 
     base_image_aspect_ratio = image_size[0] / image_size[1]
@@ -303,7 +302,7 @@ def base_image_path_callback():
     dpg.set_value("width", image_size[0])
     dpg.set_value("height", image_size[1])
 
-    dpg.hide_item("info_text")  # to remove any errors shown before
+    dpg.hide_item("status_text")  # to remove any errors shown before
 
 
 # register font
@@ -444,14 +443,14 @@ with dpg.window(tag="window"):
 
     dpg.add_button(label="Save Image", tag="save_button", show=False)
 
-    with dpg.group(horizontal=True):
-        dpg.add_text(tag="info_text", show=False)
+    with dpg.group(horizontal=True, tag="info_group", show=False):
+        dpg.add_text(tag="info_text")
         dpg.add_button(
             label="Copy Seed",
-            tag="seed_button",
             callback=lambda: pyperclip.copy(texture_manager.current()[1].seed),
-            show=False,
         )
+
+    dpg.add_text(tag="status_text")
 
     with dpg.group(pos=(460, 7), show=False, tag="output_image_group"):
         with dpg.group(horizontal=True, tag="output_image_selection"):

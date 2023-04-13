@@ -19,9 +19,9 @@ def _callback(step: int, step_count: int, progress_callback: Callable):
 
 def _error(error: str):
     print(error)
-    dpg.set_value("info_text", error)
-    dpg.show_item("info_text")
     dpg.hide_item("progress_bar")
+    dpg.set_value("status_text", error)
+    dpg.show_item("status_text")
 
 
 def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedImage]:
@@ -96,6 +96,7 @@ def img2img(
 
     try:
         base_image = Image.open(base_image_path).resize(size)
+        base_image.filename = base_image_path
     except UnidentifiedImageError:
         _error("base image path is not an image file")
         return
