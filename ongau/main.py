@@ -11,6 +11,17 @@ import config
 import utils
 import time
 import os
+import configparser
+
+configparser = configparser.ConfigParser()
+configparser.read('User_Inputs.ini')
+default_prompt = configparser.get('Default', 'prompt')
+default_negative = configparser.get('Default','negative')
+default_scale = float(configparser.get('Default', 'scale'))
+default_step = int(configparser.get('Default', 'step'))
+default_numimage = int(configparser.get('Default', 'numimage'))
+default_seed = configparser.get('Default', 'seed')
+default_pipeline = configparser.get('Default', 'pipeline')
 
 # Constants
 SCHEDULERS = [
@@ -95,7 +106,7 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("scheduler", image_info.scheduler.__name__)
     metadata.add_text("seed", str(image_info.seed))
     if type(imagen) == SDImg2Img:
-        metadata.add_text("base_image_path", image_info.base_image_path)
+        metadata.add_text("base_image_path", image_info.base_image.filename)
 
     image_info.image.save(config.SAVE_FILE_PATTERN % file_number, pnginfo=metadata)
     file_number += 1
@@ -152,7 +163,13 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 def generate_image_callback():
     global last_step_time
-
+    save_image_amount()
+    save_guidance_scale()
+    save_negative_prompt()
+    save_prompt()
+    save_step_count()
+    save_seed()
+    save_pipeline()
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
     dpg.hide_item("info_group")
@@ -305,6 +322,47 @@ def base_image_path_callback():
     dpg.hide_item("status_text")  # to remove any errors shown before
 
 
+def save_prompt():
+    user_input = dpg.get_value("prompt")
+    configparser.set(section='Default',option='prompt',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+
+def save_negative_prompt():
+    user_input = dpg.get_value("negative_prompt")
+    configparser.set(section='Default',option='negative',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+
+def save_pipeline():
+    user_input = dpg.get_value("pipeline")
+    configparser.set(section='Default',option='pipeline',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+def save_guidance_scale():
+    user_input = dpg.get_value("guidance_scale")
+    configparser.set(section='Default',option='scale',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+
+def save_step_count():
+    user_input = dpg.get_value("step_count")
+    configparser.set(section='Default',option='step',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+
+def save_image_amount():
+    user_input = dpg.get_value("image_amount")
+    configparser.set(section='Default',option='numimage',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+
+def save_seed():
+    user_input = dpg.get_value("seed")
+    configparser.set(section='Default',option='seed',value=str(user_input))
+    with open("User_Inputs.ini", "w") as config_file:
+        configparser.write(config_file)
+
 # register font
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
@@ -316,10 +374,9 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="model",
     )
-    dpg.add_input_text(label="Prompt", width=config.ITEM_WIDTH, tag="prompt")
-    dpg.add_input_text(
-        label="Negative Prompt", width=config.ITEM_WIDTH, tag="negative_prompt"
-    )
+    dpg.add_input_text(label="Prompt", default_value=default_prompt, width=config.ITEM_WIDTH, tag="prompt")
+    dpg.add_input_text(label="Negative Prompt", default_value=default_negative, width=config.ITEM_WIDTH,
+                       tag="negative_prompt")
     dpg.add_input_int(
         label="Width",
         default_value=config.DEFAULT_IMAGE_SIZE[0],
@@ -347,7 +404,7 @@ with dpg.window(tag="window"):
     # )
     dpg.add_input_float(
         label="Guidance Scale",
-        default_value=8.0,
+        default_value=default_scale,
         max_value=50.0,
         format="%.1f",
         width=config.ITEM_WIDTH,
@@ -355,7 +412,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_int(
         label="Step Count",
-        default_value=20,
+        default_value=default_step,
         min_value=1,
         max_value=500,
         width=config.ITEM_WIDTH,
@@ -363,7 +420,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_int(
         label="Amount of Images",
-        default_value=1,
+        default_value=default_numimage,
         min_value=1,
         max_value=100,
         width=config.ITEM_WIDTH,
@@ -371,6 +428,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_text(
         label="Seed",
+        default_value=default_seed,
         width=config.ITEM_WIDTH,
         tag="seed",
     )
@@ -393,7 +451,7 @@ with dpg.window(tag="window"):
         dpg.add_combo(
             label="Pipeline",
             items=["Text2Img", "Img2Img"],
-            default_value="Text2Img",
+            default_value=default_pipeline,
             width=config.ITEM_WIDTH,
             callback=update_pipeline,
             tag="pipeline",
