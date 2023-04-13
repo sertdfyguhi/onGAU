@@ -1,4 +1,5 @@
 from diffusers import SchedulerMixin, DiffusionPipeline
+from compel import Compel
 
 
 class BaseImagen:
@@ -86,6 +87,10 @@ class BaseImagen:
         print(f"loading {model} with {self._device}")
 
         self._model = model
+
+        if hasattr(self, "_pipeline"):
+            del self._pipeline
+
         self._pipeline = pipeline.from_pretrained(model).to(self._device)
         if scheduler:
             self.set_scheduler(scheduler)
@@ -159,14 +164,6 @@ class BaseImagen:
         self._pipeline.disable_xformers_memory_efficient_attention()
 
     def enable_compel_weighting(self):
-        try:
-            from compel import Compel
-        except ModuleNotFoundError:
-            print(
-                "to enable compel prompt weighting you need compel. run \033[1mpip3 install compel\033[0m"
-            )
-            return
-
         self._compel_weighting_enabled = True
         self._compel = Compel(self._pipeline.tokenizer, self._pipeline.text_encoder)
 

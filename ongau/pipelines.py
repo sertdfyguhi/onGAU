@@ -95,7 +95,7 @@ def img2img(
         return
 
     try:
-        base_image = Image.open(base_image_path).resize(size)
+        base_image = Image.open(base_image_path).resize(size).convert("RGB")
         base_image.filename = base_image_path
     except UnidentifiedImageError:
         _error("base image path is not an image file")

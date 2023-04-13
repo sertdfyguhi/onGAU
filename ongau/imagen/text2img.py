@@ -93,12 +93,10 @@ class Text2Img(BaseImagen):
         result = []
 
         for i, image in enumerate(images):
-            image = image.convert("RGBA")
-
             result.append(
                 GeneratedImage(
                     model=self._model,
-                    image=image,
+                    image=image.convert("RGBA"),
                     prompt=prompt,
                     negative_prompt=negative_prompt,
                     # strength=strength,
@@ -111,5 +109,7 @@ class Text2Img(BaseImagen):
                     height=image.size[1],
                 )
             )
+
+        del prompt_embeds, negative_prompt_embeds
 
         return result

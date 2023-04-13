@@ -5,3 +5,4 @@ saves*
 setup.py
 test.py
 test.png
+stdout*.txt

@@ -7,3 +7,4 @@ pyperclip==1.8.2
 torch==2.0.0
 transformers==4.27.4
 accelerate==0.18.0
+compel==1.1.0

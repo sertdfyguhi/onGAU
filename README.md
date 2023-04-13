@@ -34,5 +34,5 @@ python3 onGAU/main.py
 - [ ] Add upscale pipeline to UI
 - [ ] Compile code into cross platform executable
 - [ ] Optimize code
-  - [ ] Memory usage increases as more images are generated
+  - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size
