@@ -35,26 +35,27 @@ def resize_size_to_fit(
     window_size: tuple[int, int] | list[int, int],
 ):
     """
-    Recursive function to resize a specified image size to fit into a specified window size.
+    Iterative function to resize a specified image size to fit into a specified window size.
     """
 
-    result_image_size = []
+    result_image_size = image_size
 
-    if (is_width := image_size[0] > window_size[0]) or (image_size[1] > window_size[1]):
-        aspect_ratio = image_size[0] / image_size[1]
+    while (is_width := result_image_size[0] > window_size[0]) or (
+        result_image_size[1] > window_size[1]
+    ):
+        aspect_ratio = result_image_size[0] / result_image_size[1]
 
         if is_width:
-            result_image_size = [window_size[0], round(window_size[0] / aspect_ratio)]
+            result_image_size = [
+                window_size[0],
+                round(window_size[0] / aspect_ratio),
+            ]
         else:
             result_image_size = [round(window_size[1] * aspect_ratio), window_size[1]]
-    else:
-        return image_size
 
-    return resize_size_to_fit(result_image_size, window_size)
+    return result_image_size
 
 
 def append_dir_if_startswith(path: str, dir: str, startswith: str):
     """Checks if a path starts with and if so appends a path to it"""
-    if path.startswith(startswith):
-        return os.path.join(dir, path)
-    return path
+    return os.path.join(dir, path) if path.startswith(startswith) else path

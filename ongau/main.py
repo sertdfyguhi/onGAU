@@ -95,7 +95,7 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("scheduler", image_info.scheduler.__name__)
     metadata.add_text("seed", str(image_info.seed))
     if type(imagen) == SDImg2Img:
-        metadata.add_text("base_image_path", image_info.base_image.filename)
+        metadata.add_text("base_image_path", image_info.base_image_path)
 
     image_info.image.save(config.SAVE_FILE_PATTERN % file_number, pnginfo=metadata)
     file_number += 1

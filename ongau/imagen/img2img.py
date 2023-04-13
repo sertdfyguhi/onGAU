@@ -9,7 +9,7 @@ from . import utils
 
 @dataclass(frozen=True)
 class Img2ImgGeneratedImage(GeneratedImage):
-    base_image: Image
+    base_image_path: str
 
 
 class SDImg2Img(BaseImagen):
@@ -82,7 +82,7 @@ class SDImg2Img(BaseImagen):
         for i, image in enumerate(images):
             result.append(
                 Img2ImgGeneratedImage(
-                    base_image=base_image,
+                    base_image_path=base_image.filename,
                     model=self._model,
                     image=image.convert("RGBA"),
                     prompt=prompt,
