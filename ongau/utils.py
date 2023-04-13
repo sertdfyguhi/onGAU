@@ -30,42 +30,32 @@ def next_file_number(path_pattern: str):
     return b
 
 
-def resize_size_to_fit(image_size, window_size):
+def resize_size_to_fit(
+    image_size: tuple[int, int] | list[int, int],
+    window_size: tuple[int, int] | list[int, int],
+):
     """
-    Function to resize a specified image size to fit into a specified window size.
-    AI generated code that is faster than my previous implementation.
+    Iterative function to resize a specified image size to fit into a specified window size.
     """
 
-    image_width, image_height = image_size
-    window_width, window_height = window_size
+    result_image_size = image_size
 
-    image_ratio = image_width / image_height
-    window_ratio = window_width / window_height
+    while (is_width := result_image_size[0] > window_size[0]) or (
+        result_image_size[1] > window_size[1]
+    ):
+        aspect_ratio = result_image_size[0] / result_image_size[1]
 
-    if image_ratio > window_ratio:
-        # Scale the image to fit within the window height and center it horizontally
-        scale_factor = window_height / image_height
-        scaled_width = int(image_width * scale_factor)
-
-        if scaled_width <= window_width:
-            return (scaled_width, window_height)
+        if is_width:
+            result_image_size = [
+                window_size[0],
+                round(window_size[0] / aspect_ratio),
+            ]
         else:
-            scaled_width = window_width
-            scaled_height = int(image_height * scaled_width / image_width)
-            return (scaled_width, scaled_height)
-    else:
-        # Scale the image to fit within the window width and center it vertically
-        scale_factor = window_width / image_width
-        scaled_height = int(image_height * scale_factor)
+            result_image_size = [round(window_size[1] * aspect_ratio), window_size[1]]
 
-        if scaled_height <= window_height:
-            return (window_width, scaled_height)
-        else:
-            scaled_height = window_height
-            scaled_width = int(image_width * scaled_height / image_height)
-            return (scaled_width, scaled_height)
+    return result_image_size
 
 
 def append_dir_if_startswith(path: str, dir: str, startswith: str):
-    """Checks if a path starts with and if so appends a path to it."""
+    """Checks if a path starts with and if so appends a path to it"""
     return os.path.join(dir, path) if path.startswith(startswith) else path

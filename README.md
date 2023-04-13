@@ -30,8 +30,9 @@ python3 onGAU/main.py
 
 - [x] Show total generation time
 - [ ] Save and load prompts and config
-- [x] Add img2img pipeline to UI
-- [ ] Add upscale pipeline to UI
+- [x] Add img2img pipeline
+- [ ] Add upscale pipeline
+- [ ] Add LPW stable diffusion pipeline
 - [ ] Compile code into cross platform executable
 - [ ] Optimize code
   - [x] Fix memory leak when Compel prompt weighting is enabled
