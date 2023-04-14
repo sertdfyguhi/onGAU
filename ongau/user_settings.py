@@ -67,14 +67,6 @@ class UserSettings:
             "image_amount",
             "width",
             "height",
-        ]:
-            self._config.set(
-                "user_settings",
-                op,
-                str(dpg.get_value(op)),
-            )
-
-        for op in [
             "safety_checker",
             "attention_slicing",
             "vae_slicing",
