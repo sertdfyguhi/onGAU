@@ -34,6 +34,6 @@ python3 onGAU/main.py
 - [ ] Add upscale pipeline
 - [ ] Add LPW stable diffusion pipeline
 - [ ] Compile code into cross platform executable
-- [ ] Optimize code
+- [x] Optimize code
   - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size

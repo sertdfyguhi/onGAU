@@ -1,5 +1,6 @@
 from imagen import Text2Img, SDImg2Img, GeneratedImage
 from texture_manager import TextureManager
+from user_settings import UserSettings
 from PIL.PngImagePlugin import PngInfo
 import dearpygui.dearpygui as dpg
 from diffusers import schedulers
@@ -11,16 +12,6 @@ import config
 import utils
 import time
 import os
-from saveusersettings import ConfigReader,UserSettings
-
-config_reader = ConfigReader()
-default_prompt = config_reader.get_default_prompt()
-default_negative = config_reader.get_default_negative()
-default_scale = config_reader.get_default_scale()
-default_step = config_reader.get_default_step()
-default_numimage = config_reader.get_default_numimage()
-default_seed = config_reader.get_default_seed()
-default_pipeline = config_reader.get_default_pipeline()
 
 # Constants
 SCHEDULERS = [
@@ -54,8 +45,40 @@ SCHEDULERS = [
     "VQDiffusionScheduler",
 ]
 FILE_DIR = os.path.dirname(__file__)
-MODEL = utils.append_dir_if_startswith(config.DEFAULT_MODEL, FILE_DIR, "models/")
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
+
+# load user settings
+if not os.path.isfile(config.USER_SETTINGS_FILE):
+    open(config.USER_SETTINGS_FILE, "w").close()
+
+settings_manager = UserSettings(config.USER_SETTINGS_FILE)
+
+user_settings = settings_manager.get_user_settings()
+MODEL = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
+
+match user_settings["pipeline"]:
+    case "Text2Img":
+        imagen = Text2Img(MODEL, config.DEVICE)
+    case "SDImg2Img":
+        imagen = SDImg2Img(MODEL, config.DEVICE)
+
+if user_settings["scheduler"]:
+    imagen.set_scheduler(getattr(schedulers, user_settings["scheduler"]))
+
+if user_settings["safety_checker"] == None or user_settings["safety_checker"] == "True":
+    imagen.disable_safety_checker()
+
+if user_settings["attention_slicing"] != None:
+    if user_settings["safety_checker"] == "True":
+        imagen.enable_attention_slicing()
+else:
+    if imagen.device == "mps":
+        imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
+
+for op in ["vae_slicing", "xformers_memory_attention", "compel_weighting"]:
+    setting = user_settings[op]
+    if setting != None and setting == "True":
+        getattr(imagen, "enable_" + op)()
 
 
 dpg.create_context()
@@ -64,12 +87,6 @@ dpg.create_viewport(
 )
 
 texture_manager = TextureManager(dpg.add_texture_registry())
-
-imagen = Text2Img(MODEL, config.DEVICE)
-imagen.disable_safety_checker()
-
-if imagen.device == "mps":
-    imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
 
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 base_image_aspect_ratio = None
@@ -162,12 +179,6 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 def generate_image_callback():
     global last_step_time
-    save = UserSettings()
-    save.save_user_settings()
-    dpg.show_item("progress_bar")
-    dpg.hide_item("save_button")
-    dpg.hide_item("info_group")
-    dpg.hide_item("output_image_group")
 
     texture_manager.clear()  # save memory
 
@@ -184,6 +195,11 @@ def generate_image_callback():
     scheduler = dpg.get_value("scheduler")
     if scheduler != imagen.scheduler.__name__:
         imagen.set_scheduler(getattr(schedulers, scheduler))
+
+    dpg.show_item("progress_bar")
+    dpg.hide_item("save_button")
+    dpg.hide_item("info_group")
+    dpg.hide_item("output_image_group")
 
     start_time = time.time()
     imagen_type = type(imagen)
@@ -279,7 +295,7 @@ def update_pipeline(_, pipeline):
         case "Text2Img":
             imagen = Text2Img.from_class(imagen)
             dpg.hide_item("base_image_path")
-        case "Img2Img":
+        case "SDImg2Img":
             imagen = SDImg2Img.from_class(imagen)
             dpg.show_item("base_image_path")
 
@@ -315,6 +331,7 @@ def base_image_path_callback():
 
     dpg.hide_item("status_text")  # to remove any errors shown before
 
+
 # register font
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
@@ -322,16 +339,25 @@ with dpg.font_registry():
 with dpg.window(tag="window"):
     dpg.add_input_text(
         label="Model",
-        default_value=config.DEFAULT_MODEL,
+        default_value=MODEL,
         width=config.ITEM_WIDTH,
         tag="model",
     )
-    dpg.add_input_text(label="Prompt", default_value=default_prompt, width=config.ITEM_WIDTH, tag="prompt")
-    dpg.add_input_text(label="Negative Prompt", default_value=default_negative, width=config.ITEM_WIDTH,
-                       tag="negative_prompt")
+    dpg.add_input_text(
+        label="Prompt",
+        default_value=user_settings["prompt"],
+        width=config.ITEM_WIDTH,
+        tag="prompt",
+    )
+    dpg.add_input_text(
+        label="Negative Prompt",
+        default_value=user_settings["negative_prompt"],
+        width=config.ITEM_WIDTH,
+        tag="negative_prompt",
+    )
     dpg.add_input_int(
         label="Width",
-        default_value=config.DEFAULT_IMAGE_SIZE[0],
+        default_value=int(user_settings["width"]),
         min_value=1,
         width=config.ITEM_WIDTH,
         callback=image_size_calc,
@@ -339,7 +365,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_int(
         label="Height",
-        default_value=config.DEFAULT_IMAGE_SIZE[1],
+        default_value=int(user_settings["height"]),
         min_value=1,
         width=config.ITEM_WIDTH,
         callback=image_size_calc,
@@ -356,7 +382,8 @@ with dpg.window(tag="window"):
     # )
     dpg.add_input_float(
         label="Guidance Scale",
-        default_value=default_scale,
+        default_value=float(user_settings["guidance_scale"]),
+        min_value=0.0,
         max_value=50.0,
         format="%.1f",
         width=config.ITEM_WIDTH,
@@ -364,7 +391,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_int(
         label="Step Count",
-        default_value=default_step,
+        default_value=int(user_settings["step_count"]),
         min_value=1,
         max_value=500,
         width=config.ITEM_WIDTH,
@@ -372,7 +399,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_int(
         label="Amount of Images",
-        default_value=default_numimage,
+        default_value=int(user_settings["image_amount"]),
         min_value=1,
         max_value=100,
         width=config.ITEM_WIDTH,
@@ -380,7 +407,7 @@ with dpg.window(tag="window"):
     )
     dpg.add_input_text(
         label="Seed",
-        default_value=default_seed,
+        default_value=user_settings["seed"],
         width=config.ITEM_WIDTH,
         tag="seed",
     )
@@ -391,10 +418,11 @@ with dpg.window(tag="window"):
     dpg.add_input_text(
         # readonly=True,
         label="Base Image Path",
+        default_value=user_settings["base_image_path"],
         width=config.ITEM_WIDTH,
         tag="base_image_path",
         callback=base_image_path_callback,
-        show=False,
+        show=user_settings["pipeline"] == "SDImg2Img",
     )
 
     dpg.add_button(label="Advanced Configuration", callback=toggle_advanced_config)
@@ -402,8 +430,8 @@ with dpg.window(tag="window"):
     with dpg.group(tag="advanced_config", show=False):
         dpg.add_combo(
             label="Pipeline",
-            items=["Text2Img", "Img2Img"],
-            default_value=default_pipeline,
+            items=["Text2Img", "SDImg2Img"],
+            default_value=imagen.__class__.__name__,
             width=config.ITEM_WIDTH,
             callback=update_pipeline,
             tag="pipeline",
@@ -476,5 +504,6 @@ if __name__ == "__main__":
     print("starting GUI")
     dpg.setup_dearpygui()
     dpg.show_viewport()
+    dpg.set_exit_callback(settings_manager.save_user_settings)
     dpg.start_dearpygui()
     dpg.destroy_context()
