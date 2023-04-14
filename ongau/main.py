@@ -11,17 +11,16 @@ import config
 import utils
 import time
 import os
-import configparser
+from saveusersettings import ConfigReader,UserSettings
 
-configparser = configparser.ConfigParser()
-configparser.read('User_Inputs.ini')
-default_prompt = configparser.get('Default', 'prompt')
-default_negative = configparser.get('Default','negative')
-default_scale = float(configparser.get('Default', 'scale'))
-default_step = int(configparser.get('Default', 'step'))
-default_numimage = int(configparser.get('Default', 'numimage'))
-default_seed = configparser.get('Default', 'seed')
-default_pipeline = configparser.get('Default', 'pipeline')
+config_reader = ConfigReader()
+default_prompt = config_reader.get_default_prompt()
+default_negative = config_reader.get_default_negative()
+default_scale = config_reader.get_default_scale()
+default_step = config_reader.get_default_step()
+default_numimage = config_reader.get_default_numimage()
+default_seed = config_reader.get_default_seed()
+default_pipeline = config_reader.get_default_pipeline()
 
 # Constants
 SCHEDULERS = [
@@ -163,13 +162,8 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 def generate_image_callback():
     global last_step_time
-    save_image_amount()
-    save_guidance_scale()
-    save_negative_prompt()
-    save_prompt()
-    save_step_count()
-    save_seed()
-    save_pipeline()
+    save = UserSettings()
+    save.save_user_settings()
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
     dpg.hide_item("info_group")
@@ -320,48 +314,6 @@ def base_image_path_callback():
     dpg.set_value("height", image_size[1])
 
     dpg.hide_item("status_text")  # to remove any errors shown before
-
-
-def save_prompt():
-    user_input = dpg.get_value("prompt")
-    configparser.set(section='Default',option='prompt',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
-
-def save_negative_prompt():
-    user_input = dpg.get_value("negative_prompt")
-    configparser.set(section='Default',option='negative',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
-
-def save_pipeline():
-    user_input = dpg.get_value("pipeline")
-    configparser.set(section='Default',option='pipeline',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
-def save_guidance_scale():
-    user_input = dpg.get_value("guidance_scale")
-    configparser.set(section='Default',option='scale',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
-
-def save_step_count():
-    user_input = dpg.get_value("step_count")
-    configparser.set(section='Default',option='step',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
-
-def save_image_amount():
-    user_input = dpg.get_value("image_amount")
-    configparser.set(section='Default',option='numimage',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
-
-def save_seed():
-    user_input = dpg.get_value("seed")
-    configparser.set(section='Default',option='seed',value=str(user_input))
-    with open("User_Inputs.ini", "w") as config_file:
-        configparser.write(config_file)
 
 # register font
 with dpg.font_registry():
