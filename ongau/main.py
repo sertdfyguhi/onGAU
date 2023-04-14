@@ -52,7 +52,6 @@ if not os.path.isfile(config.USER_SETTINGS_FILE):
     open(config.USER_SETTINGS_FILE, "w").close()
 
 settings_manager = UserSettings(config.USER_SETTINGS_FILE)
-
 user_settings = settings_manager.get_user_settings()
 MODEL = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 
@@ -69,7 +68,7 @@ if user_settings["safety_checker"] == None or user_settings["safety_checker"] ==
     imagen.disable_safety_checker()
 
 if user_settings["attention_slicing"] != None:
-    if user_settings["safety_checker"] == "True":
+    if user_settings["attention_slicing"] == "True":
         imagen.enable_attention_slicing()
 else:
     if imagen.device == "mps":

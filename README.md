@@ -34,6 +34,7 @@ python3 onGAU/main.py
 - [ ] Add upscale pipeline
 - [ ] Add LPW stable diffusion pipeline
 - [ ] Compile code into cross platform executable
-- [x] Optimize code
+- Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size
+  - [ ] Sometimes after changing models inference is extremely slow

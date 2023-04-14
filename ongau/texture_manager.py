@@ -68,4 +68,4 @@ class TextureManager:
         self._image_index = 0
 
     def to_counter_string(self) -> str:
-        return f"{self._image_index+1}/{len(self._textures)}"
+        return f"{self._image_index + 1}/{len(self._textures)}"
