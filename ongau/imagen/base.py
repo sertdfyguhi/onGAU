@@ -53,9 +53,19 @@ class BaseImagen:
     def compel_weighting_enabled(self):
         return self._compel_weighting_enabled
 
+    @property
+    def embedding_models_loaded(self):
+        return self._embedding_models_loaded
+
+    @property
+    def lpw_stable_diffusion_used(self):
+        return self._lpw_stable_diffusion_used
+
     @classmethod
     def from_class(cls, original):
-        c = cls(original.model, original.device)  # initialize class
+        c = cls(
+            original.model, original.device, original.lpw_stable_diffusion_used
+        )  # initialize class
 
         if original.scheduler:
             c.set_scheduler(original.scheduler)
@@ -74,6 +84,9 @@ class BaseImagen:
 
         if original.compel_weighting_enabled:
             c.enable_compel_weighting()
+
+        for model in original.embedding_models_loaded:
+            c.load_embedding_model(model)
 
         return c
 
@@ -125,6 +138,12 @@ class BaseImagen:
         if self._compel_weighting_enabled:
             self.enable_compel_weighting()
 
+        for model in self._embedding_models_loaded:
+            self._pipeline.load_textual_inversion(model)
+
+    def load_lpw_stable_diffusion(self):
+        self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
+
     def load_embedding_model(self, embedding_model_path: str):
         self._embedding_models_loaded.append(embedding_model_path)
         self._pipeline.load_textual_inversion(embedding_model_path)
@@ -133,11 +152,18 @@ class BaseImagen:
         self._device = device
         self._pipeline = self._pipeline.to(device)
 
-    def set_scheduler(self, scheduler: SchedulerMixin):
+    def set_scheduler(self, scheduler: SchedulerMixin, use_karras_sigmas: bool = False):
+        if use_karras_sigmas:
+            self._pipeline.scheduler = scheduler.from_config(
+                self._pipeline.scheduler.config, use_karras_sigmas=use_karras_sigmas
+            )
+        else:
+            self._pipeline.scheduler = scheduler.from_config(
+                self._pipeline.scheduler.config
+            )
+
         self._scheduler = scheduler
-        self._pipeline.scheduler = scheduler.from_config(
-            self._pipeline.scheduler.config
-        )
+        self._scheduler_uses_karras_sigmas = use_karras_sigmas
 
     def enable_safety_checker(self):
         if hasattr(self._pipeline, "safety_checker"):

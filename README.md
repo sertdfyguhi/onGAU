@@ -32,8 +32,9 @@ python3 onGAU/main.py
 - [ ] Save and load prompts and config
 - [x] Add img2img pipeline
 - [ ] Add upscale pipeline
-- [ ] Add LPW stable diffusion pipeline
+- [x] Add LPW stable diffusion pipeline
 - [x] Add textual inversion model loading
+- [ ] Add Clip Skip parameter
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled

@@ -20,8 +20,10 @@ SCHEDULERS = [
     "DDPMScheduler",
     "DEISMultistepScheduler",
     "DPMSolverMultistepScheduler",
+    "DPMSolverMultistepScheduler Karras",
     "DPMSolverSinglestepScheduler",
     "EulerAncestralDiscreteScheduler",
+    "EulerAncestralDiscreteScheduler Karras",
     "EulerDiscreteScheduler",
     "FlaxDDIMScheduler",
     "FlaxDDPMScheduler",
@@ -57,13 +59,13 @@ model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "m
 _class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
 try:
-    imagen = _class(model_path, config.DEVICE)
+    imagen = _class(model_path, config.DEVICE, config.LOAD_LPWSD_BY_DEFAULT)
 except Exception:
     print(model_path, "does not exist. fallback on default model")
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"
     )
-    imagen = _class(model_path, config.DEVICE)
+    imagen = _class(model_path, config.DEVICE, config.LOAD_LPWSD_BY_DEFAULT)
 
 if user_settings["scheduler"]:
     imagen.set_scheduler(getattr(schedulers, user_settings["scheduler"]))
@@ -78,8 +80,12 @@ else:
     if imagen.device == "mps":
         imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
 
-for op in ["vae_slicing", "xformers_memory_attention", "compel_weighting"]:
-    if user_settings[op] == "True":
+for op in [
+    "vae_slicing",
+    "xformers_memory_attention",
+    "compel_weighting" if not config.LOAD_LPWSD_BY_DEFAULT else None,
+]:
+    if op and user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
 
 # load embedding models
@@ -207,7 +213,10 @@ def generate_image_callback():
 
     scheduler = dpg.get_value("scheduler")
     if scheduler != imagen.scheduler.__name__:
-        imagen.set_scheduler(getattr(schedulers, scheduler))
+        if scheduler[-6:] == "Karras":
+            imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
+        else:
+            imagen.set_scheduler(getattr(schedulers, scheduler))
 
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
@@ -268,7 +277,14 @@ def change_image(tag):
 
 def checkbox_callback(tag, value):
     func_name = ("enable_" if value else "disable_") + tag
-    getattr(imagen, func_name)()
+
+    try:
+        getattr(imagen, func_name)()
+    except Exception as e:
+        status(str(e))
+        print(e)
+
+        dpg.set_value(tag, not value)
 
 
 def toggle_xformers(tag, value):
