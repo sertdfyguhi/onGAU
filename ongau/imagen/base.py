@@ -9,6 +9,7 @@ class BaseImagen:
         self._model = model
         self._device = device
         self._scheduler = None
+        self._embedding_models_loaded = []
         self._safety_checker_enabled = False
         self._attention_slicing_enabled = False
         self._vae_slicing_enabled = False
@@ -123,6 +124,10 @@ class BaseImagen:
 
         if self._compel_weighting_enabled:
             self.enable_compel_weighting()
+
+    def load_embedding_model(self, embedding_model_path: str):
+        self._embedding_models_loaded.append(embedding_model_path)
+        self._pipeline.load_textual_inversion(embedding_model_path)
 
     def set_device(self, device: str):
         self._device = device

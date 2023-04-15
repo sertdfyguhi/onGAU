@@ -82,6 +82,14 @@ for op in ["vae_slicing", "xformers_memory_attention", "compel_weighting"]:
     if user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
 
+# load embedding models
+for model in config.EMBEDDING_MODELS:
+    try:
+        imagen.load_embedding_model(
+            utils.append_dir_if_startswith(model, FILE_DIR, "models/")
+        )
+    except Exception:
+        print(model, "does not exist. skipping")
 
 dpg.create_context()
 dpg.create_viewport(
