@@ -4,14 +4,11 @@ SAVE_FILE_PATTERN = (
 )
 DEFAULT_MODEL = "models/anything-v3.0"  # the model to use (either a local path (in diffusers format)) or a huggingface model (for example: stabilityai/stable-diffusion))
 DEVICE = "mps"  # device to use. nvidia gpu should use "cuda" and cpu should use "cpu". more info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
-EMBEDDING_MODELS = [
-    "models/neg-embeds/EasyNegative.pt",
-    "models/neg-embeds/bad_prompt.pt",
-]  # an array of paths to embedding models to use
+EMBEDDING_MODELS = []  # an array of paths to embedding models to use
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
 
 # load long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.15.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
-LOAD_LPWSD_BY_DEFAULT = True
+LOAD_LPWSD_BY_DEFAULT = False
 
 # dont need to change anything under here unless you know what ur doing lol
 DEFAULT_PROMPT = ""
