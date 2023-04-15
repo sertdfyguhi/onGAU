@@ -39,4 +39,4 @@ python3 onGAU/main.py
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size
-  - [ ] Sometimes after changing models inference is extremely slow
+  - [x] Sometimes after changing models inference is extremely slow

@@ -107,6 +107,9 @@ class BaseImagen:
             if self._compel_weighting_enabled:
                 del self._compel
 
+            if hasattr(self, "_orig_safety_checker"):
+                del self._orig_safety_checker
+
         self._pipeline = pipeline.from_pretrained(
             model,
             custom_pipeline="lpw_stable_diffusion" if lpw_stable_diffusion else None,

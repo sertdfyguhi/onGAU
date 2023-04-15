@@ -67,8 +67,14 @@ except Exception:
     )
     imagen = _class(model_path, config.DEVICE, config.LOAD_LPWSD_BY_DEFAULT)
 
-if user_settings["scheduler"]:
-    imagen.set_scheduler(getattr(schedulers, user_settings["scheduler"]))
+s = user_settings["scheduler"]
+
+if s:
+    if s[-6:] == "Karras":
+        imagen.set_scheduler(getattr(schedulers, s[:-7]), True)
+    else:
+        imagen.set_scheduler(getattr(schedulers, s))
+
 
 if user_settings["safety_checker"] == None or user_settings["safety_checker"] == "True":
     imagen.disable_safety_checker()
@@ -468,7 +474,7 @@ with dpg.window(tag="window"):
         dpg.add_combo(
             label="Scheduler",
             items=SCHEDULERS,
-            default_value=imagen.scheduler.__name__,
+            default_value=user_settings['scheduler'] if user_settings['scheduler'] else imagen.scheduler.__name__,
             width=config.ITEM_WIDTH,
             tag="scheduler",
         )

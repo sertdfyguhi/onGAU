@@ -8,7 +8,7 @@ EMBEDDING_MODELS = []  # an array of paths to embedding models to use
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
 
 # load long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.15.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
-LOAD_LPWSD_BY_DEFAULT = False
+LOAD_LPWSD_BY_DEFAULT = True
 
 # dont need to change anything under here unless you know what ur doing lol
 DEFAULT_PROMPT = ""

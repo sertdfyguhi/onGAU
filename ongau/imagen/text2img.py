@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from PIL.Image import Image
 from typing import Callable
 from . import utils
-import torch
 
 
 @dataclass(frozen=True)
@@ -77,10 +76,12 @@ class Text2Img(BaseImagen):
 
         if self._lpw_stable_diffusion_used:
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
+            kwargs["max_embeddings_multiples"] = 6
 
         if self._lpw_stable_diffusion_used or (
             self._device == "mps" and len(seeds) > 1
         ):
+            kwargs["num_images_per_prompt"] = 1
             images = [
                 self._pipeline(**kwargs, generator=generators[i]).images[0]
                 for i in range(image_amount)
