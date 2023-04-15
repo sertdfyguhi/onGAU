@@ -13,11 +13,12 @@ class Img2ImgGeneratedImage(GeneratedImage):
 
 
 class SDImg2Img(BaseImagen):
-    def __init__(self, model: str, device: str) -> None:
-        super().__init__(model, device)
-
-    def set_model(self, model: str):
-        self._set_model(model, StableDiffusionImg2ImgPipeline)
+    def set_model(self, model: str, lpw_stable_diffusion: bool = False):
+        self._set_model(
+            model,
+            StableDiffusionImg2ImgPipeline,
+            lpw_stable_diffusion=lpw_stable_diffusion,
+        )
 
     def generate_image(
         self,

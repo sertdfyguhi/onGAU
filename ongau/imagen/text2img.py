@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from PIL.Image import Image
 from typing import Callable
 from . import utils
+import torch
 
 
 @dataclass(frozen=True)
@@ -24,11 +25,10 @@ class GeneratedImage:
 
 # stable diffusion model
 class Text2Img(BaseImagen):
-    def __init__(self, model: str, device: str) -> None:
-        super().__init__(model, device)
-
-    def set_model(self, model: str):
-        self._set_model(model, DiffusionPipeline)
+    def set_model(self, model: str, lpw_stable_diffusion: bool = False):
+        self._set_model(
+            model, DiffusionPipeline, lpw_stable_diffusion=lpw_stable_diffusion
+        )
 
     def generate_image(
         self,
@@ -43,7 +43,11 @@ class Text2Img(BaseImagen):
         progress_callback: Callable = None,
     ) -> list[GeneratedImage]:
         generators, seeds = utils.create_torch_generator(
-            seed, self._device, image_amount
+            seed,
+            "cpu"
+            if self._lpw_stable_diffusion_used and self._device == "mps"
+            else self._device,
+            image_amount,
         )
 
         prompt_embeds = negative_prompt_embeds = None
@@ -57,38 +61,32 @@ class Text2Img(BaseImagen):
                 negative_prompt
             )
 
-        if self._device == "mps" and len(seeds) > 1:
+        kwargs = {
+            "prompt": temp_prompt,
+            "negative_prompt": temp_negative_prompt,
+            "prompt_embeds": prompt_embeds,
+            "negative_prompt_embeds": negative_prompt_embeds,
+            "width": size[0],
+            "height": size[1],
+            "num_inference_steps": step_count,
+            # strength=strength,
+            "guidance_scale": guidance_scale,
+            "num_images_per_prompt": image_amount,
+            "callback": progress_callback,
+        }
+
+        if self._lpw_stable_diffusion_used:
+            del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
+
+        if self._lpw_stable_diffusion_used or (
+            self._device == "mps" and len(seeds) > 1
+        ):
             images = [
-                self._pipeline(
-                    prompt=temp_prompt,
-                    negative_prompt=temp_negative_prompt,
-                    prompt_embeds=prompt_embeds,
-                    negative_prompt_embeds=negative_prompt_embeds,
-                    generator=generators[i],
-                    width=size[0],
-                    height=size[1],
-                    # strength=strength,
-                    num_inference_steps=step_count,
-                    guidance_scale=guidance_scale,
-                    callback=progress_callback,
-                ).images[0]
+                self._pipeline(**kwargs, generator=generators[i]).images[0]
                 for i in range(image_amount)
             ]
         else:
-            images = self._pipeline(
-                prompt=temp_prompt,
-                negative_prompt=temp_negative_prompt,
-                prompt_embeds=prompt_embeds,
-                negative_prompt_embeds=negative_prompt_embeds,
-                generator=generators,
-                width=size[0],
-                height=size[1],
-                num_inference_steps=step_count,
-                # strength=strength,
-                guidance_scale=guidance_scale,
-                num_images_per_prompt=image_amount,
-                callback=progress_callback,
-            ).images
+            images = self._pipeline(**kwargs, generator=generators).images
 
         result = []
 

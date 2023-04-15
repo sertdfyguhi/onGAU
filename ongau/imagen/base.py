@@ -4,9 +4,7 @@ from compel import Compel
 
 class BaseImagen:
     def __init__(
-        self,
-        model: str,
-        device: str,
+        self, model: str, device: str, lpw_stable_diffusion: bool = False
     ) -> None:
         self._model = model
         self._device = device
@@ -16,7 +14,7 @@ class BaseImagen:
         self._vae_slicing_enabled = False
         self._xformers_memory_attention_enabled = False
         self._compel_weighting_enabled = False
-        self.set_model(model)
+        self.set_model(model, lpw_stable_diffusion)
 
     @property
     def model(self):
@@ -83,15 +81,22 @@ class BaseImagen:
         model: str,
         pipeline: DiffusionPipeline = DiffusionPipeline,
         scheduler: SchedulerMixin = None,
+        lpw_stable_diffusion: bool = False,
     ) -> None:
         print(f"loading {model} with {self._device}")
 
         self._model = model
+        self._lpw_stable_diffusion_used = lpw_stable_diffusion
 
         if hasattr(self, "_pipeline"):
             del self._pipeline
+            if self._compel_weighting_enabled:
+                del self._compel
 
-        self._pipeline = pipeline.from_pretrained(model).to(self._device)
+        self._pipeline = pipeline.from_pretrained(
+            model,
+            custom_pipeline="lpw_stable_diffusion" if lpw_stable_diffusion else None,
+        ).to(self._device)
         if scheduler:
             self.set_scheduler(scheduler)
 
@@ -164,6 +169,11 @@ class BaseImagen:
         self._pipeline.disable_xformers_memory_efficient_attention()
 
     def enable_compel_weighting(self):
+        if self._lpw_stable_diffusion_used:
+            raise RuntimeError(
+                "compel prompt weighting cannot be used when using lpw_stable_diffusion"
+            )
+
         self._compel_weighting_enabled = True
         self._compel = Compel(self._pipeline.tokenizer, self._pipeline.text_encoder)
 

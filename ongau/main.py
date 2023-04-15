@@ -53,13 +53,17 @@ if not os.path.isfile(config.USER_SETTINGS_FILE):
 
 settings_manager = UserSettings(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_user_settings()
-MODEL = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
+model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
+_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
-match user_settings["pipeline"]:
-    case "Text2Img":
-        imagen = Text2Img(MODEL, config.DEVICE)
-    case "SDImg2Img":
-        imagen = SDImg2Img(MODEL, config.DEVICE)
+try:
+    imagen = _class(model_path, config.DEVICE)
+except Exception:
+    print(model_path, "does not exist. fallback on default model")
+    model_path = utils.append_dir_if_startswith(
+        config.DEFAULT_MODEL, FILE_DIR, "models/"
+    )
+    imagen = _class(model_path, config.DEVICE)
 
 if user_settings["scheduler"]:
     imagen.set_scheduler(getattr(schedulers, user_settings["scheduler"]))
@@ -75,8 +79,7 @@ else:
         imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
 
 for op in ["vae_slicing", "xformers_memory_attention", "compel_weighting"]:
-    setting = user_settings[op]
-    if setting != None and setting == "True":
+    if user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
 
 
@@ -186,7 +189,10 @@ def generate_image_callback():
         status(f"Loading {model}...")
         update_window_title(f"Loading {model}...")
 
-        imagen.set_model(model)
+        try:
+            imagen.set_model(model)
+        except Exception:
+            print(model, "does not exist")
 
         dpg.hide_item("status_text")
         update_window_title()
@@ -338,7 +344,7 @@ with dpg.font_registry():
 with dpg.window(tag="window"):
     dpg.add_input_text(
         label="Model",
-        default_value=MODEL,
+        default_value=model_path,
         width=config.ITEM_WIDTH,
         tag="model",
     )
