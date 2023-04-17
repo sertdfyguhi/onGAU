@@ -34,7 +34,7 @@ python3 onGAU/main.py
 - [ ] Add upscale pipeline
 - [x] Add LPW stable diffusion pipeline
 - [x] Add textual inversion model loading
-- [ ] Add Clip Skip parameter
+- [x] Add Clip Skip parameter
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
