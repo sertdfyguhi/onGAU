@@ -45,7 +45,7 @@ class Text2Img(BaseImagen):
             seed,
             "cpu"
             if self._lpw_stable_diffusion_used and self._device == "mps"
-            else self._device,
+            else self._device,  # bug in lpwsd pipeline that causes it to break when using mps generators
             image_amount,
         )
 
@@ -68,16 +68,17 @@ class Text2Img(BaseImagen):
             "width": size[0],
             "height": size[1],
             "num_inference_steps": step_count,
-            # strength=strength,
             "guidance_scale": guidance_scale,
             "num_images_per_prompt": image_amount,
             "callback": progress_callback,
         }
 
         if self._lpw_stable_diffusion_used:
+            # lpwsd pipeline does not accept prompt embeds
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
             kwargs["max_embeddings_multiples"] = 6
 
+        # lpwsd pipeline does not work with a list of generators
         if self._lpw_stable_diffusion_used or (
             self._device == "mps" and len(seeds) > 1
         ):

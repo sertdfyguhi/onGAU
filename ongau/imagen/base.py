@@ -10,6 +10,7 @@ class BaseImagen:
         self._device = device
         self._scheduler = None
         self._embedding_models_loaded = []
+        self._clip_skip_amount = 0
         self._safety_checker_enabled = False
         self._attention_slicing_enabled = False
         self._vae_slicing_enabled = False
@@ -32,6 +33,10 @@ class BaseImagen:
     @property
     def pipeline(self):
         return self._pipeline.__class__
+
+    @property
+    def clip_skip_amount(self):
+        return self._clip_skip_amount
 
     @property
     def safety_checker_enabled(self):
@@ -122,6 +127,9 @@ class BaseImagen:
         # remove progress bar logging
         self._pipeline.set_progress_bar_config(disable=True)
 
+        # for clip skip use
+        self._clip_layers = self._pipeline.text_encoder.text_model.encoder.layers
+
         # make a copy of the safety checker to be able to enable and disable it
         if hasattr(self._pipeline, "safety_checker"):
             self._orig_safety_checker = self._pipeline.safety_checker
@@ -150,6 +158,14 @@ class BaseImagen:
     def load_embedding_model(self, embedding_model_path: str):
         self._embedding_models_loaded.append(embedding_model_path)
         self._pipeline.load_textual_inversion(embedding_model_path)
+
+    def set_clip_skip_amount(self, amount: int = None):
+        if amount >= len(self._clip_layers):
+            raise ValueError("cannot skip more clip layers")
+
+        self._pipeline.text_encoder.text_model.encoder.layers = (
+            self._clip_layers[:-amount] if amount else self._clip_layers
+        )
 
     def set_device(self, device: str):
         self._device = device

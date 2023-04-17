@@ -224,6 +224,13 @@ def generate_image_callback():
         else:
             imagen.set_scheduler(getattr(schedulers, scheduler))
 
+    clip_skip = dpg.get_value("clip_skip")
+    if clip_skip != imagen.clip_skip_amount:
+        try:
+            imagen.set_clip_skip_amount(clip_skip)
+        except ValueError as e:
+            print(e, ", no clip skip will be applied")
+
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
     dpg.hide_item("info_group")
@@ -474,9 +481,17 @@ with dpg.window(tag="window"):
         dpg.add_combo(
             label="Scheduler",
             items=SCHEDULERS,
-            default_value=user_settings['scheduler'] if user_settings['scheduler'] else imagen.scheduler.__name__,
+            default_value=user_settings["scheduler"]
+            if user_settings["scheduler"]
+            else imagen.scheduler.__name__,
             width=config.ITEM_WIDTH,
             tag="scheduler",
+        )
+        dpg.add_input_int(
+            label="Clip Skip",
+            default_value=int(user_settings["clip_skip"]),
+            width=config.ITEM_WIDTH,
+            tag="clip_skip",
         )
         dpg.add_checkbox(
             label="Disable Safety Checker",
@@ -537,8 +552,8 @@ dpg.set_primary_window("window", True)
 
 if __name__ == "__main__":
     print("starting GUI")
+    dpg.set_exit_callback(settings_manager.save_user_settings)
     dpg.setup_dearpygui()
     dpg.show_viewport()
-    dpg.set_exit_callback(settings_manager.save_user_settings)
     dpg.start_dearpygui()
     dpg.destroy_context()

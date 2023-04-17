@@ -28,10 +28,6 @@ class UserSettings:
                 "user_settings", op, fallback=getattr(config, "DEFAULT_" + op.upper())
             )
 
-        user_settings["base_image_path"] = self._config.get(
-            "user_settings", "base_image_path", fallback=""
-        )
-
         for op in [
             "scheduler",
             "safety_checker",
@@ -41,6 +37,14 @@ class UserSettings:
             "compel_weighting",
         ]:
             user_settings[op] = self._config.get("user_settings", op, fallback=None)
+
+        user_settings["base_image_path"] = self._config.get(
+            "user_settings", "base_image_path", fallback=""
+        )
+
+        user_settings["clip_skip"] = self._config.get(
+            "user_settings", "clip_skip", fallback=0
+        )
 
         return user_settings
 
@@ -58,6 +62,7 @@ class UserSettings:
             "scheduler",
             "base_image_path",
         ]:
+            # print(op, dpg.get_value(op))
             self._config.set("user_settings", op, dpg.get_value(op))
 
         # options that do need to be converted to a string
@@ -67,6 +72,7 @@ class UserSettings:
             "image_amount",
             "width",
             "height",
+            "clip_skip",
             "safety_checker",
             "attention_slicing",
             "vae_slicing",
