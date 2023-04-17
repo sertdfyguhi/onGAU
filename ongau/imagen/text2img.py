@@ -1,32 +1,14 @@
-from diffusers import DiffusionPipeline, SchedulerMixin
-from .base import BaseImagen
-from dataclasses import dataclass
-from PIL.Image import Image
+from diffusers import DiffusionPipeline
+from .base import BaseImagen, GeneratedImage
 from typing import Callable
 from . import utils
 
 
-@dataclass(frozen=True)
-class GeneratedImage:
-    model: str
-    image: Image
-    prompt: str
-    negative_prompt: str
-    # strength: int
-    guidance_scale: int
-    step_count: int
-    seed: int
-    pipeline: DiffusionPipeline
-    scheduler: SchedulerMixin
-    width: int
-    height: int
-
-
 # stable diffusion model
 class Text2Img(BaseImagen):
-    def set_model(self, model: str, lpw_stable_diffusion: bool = False):
+    def set_model(self, model: str, use_lpw_stable_diffusion: bool = False):
         self._set_model(
-            model, DiffusionPipeline, lpw_stable_diffusion=lpw_stable_diffusion
+            model, DiffusionPipeline, use_lpw_stable_diffusion=use_lpw_stable_diffusion
         )
 
     def generate_image(

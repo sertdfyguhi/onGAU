@@ -5,14 +5,7 @@ import numpy as np
 
 
 def _convert_PIL_to_DPG_image(pil_image: Image):
-    # create np array and flatten
-    array = np.ravel(np.array(pil_image))
-    # convert to float array
-    array = array.astype("float32")
-    # turn rgba values into floating point numbers
-    array = array / 255.0
-
-    return array
+    return np.ravel(np.asarray(pil_image)).astype(np.float32) / 255.0
 
 
 class TextureManager:

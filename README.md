@@ -31,12 +31,13 @@ python3 onGAU/main.py
 - [x] Show total generation time
 - [ ] Save and load prompts and config
 - [x] Add img2img pipeline
-- [ ] Add upscale pipeline
 - [x] Add LPW stable diffusion pipeline
 - [x] Add textual inversion model loading
 - [x] Add Clip Skip parameter
+- [ ] Add CPU model offloading
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size
   - [x] Sometimes after changing models inference is extremely slow
+  - [ ] When switching pipelines inference gets extremely slow

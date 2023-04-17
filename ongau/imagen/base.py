@@ -1,5 +1,23 @@
 from diffusers import SchedulerMixin, DiffusionPipeline
+from dataclasses import dataclass
 from compel import Compel
+from PIL import Image
+import copy
+
+
+@dataclass(frozen=True)
+class GeneratedImage:
+    model: str
+    image: Image
+    prompt: str
+    negative_prompt: str
+    guidance_scale: int
+    step_count: int
+    seed: int
+    pipeline: DiffusionPipeline
+    scheduler: SchedulerMixin
+    width: int
+    height: int
 
 
 class BaseImagen:
@@ -72,8 +90,14 @@ class BaseImagen:
             original.model, original.device, original.lpw_stable_diffusion_used
         )  # initialize class
 
+        c.set_clip_skip_amount(original.clip_skip_amount)
+
         if original.scheduler:
-            c.set_scheduler(original.scheduler)
+            c.set_scheduler(
+                original.scheduler,
+                # using private vars here :face_vomiting:
+                getattr(original._pipeline.scheduler, "use_karras_sigmas", False),
+            )
 
         if not original.safety_checker_enabled:
             c.disable_safety_checker()
@@ -100,14 +124,18 @@ class BaseImagen:
         model: str,
         pipeline: DiffusionPipeline = DiffusionPipeline,
         scheduler: SchedulerMixin = None,
-        lpw_stable_diffusion: bool = False,
+        use_lpw_stable_diffusion: bool = False,
     ) -> None:
         print(f"loading {model} with {self._device}")
 
         self._model = model
-        self._lpw_stable_diffusion_used = lpw_stable_diffusion
+        self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
+
+        orig_scheduler = None
 
         if hasattr(self, "_pipeline"):
+            orig_scheduler = copy.deepcopy(self._pipeline.scheduler)
+
             del self._pipeline
             if self._compel_weighting_enabled:
                 del self._compel
@@ -117,10 +145,19 @@ class BaseImagen:
 
         self._pipeline = pipeline.from_pretrained(
             model,
-            custom_pipeline="lpw_stable_diffusion" if lpw_stable_diffusion else None,
+            custom_pipeline="lpw_stable_diffusion"
+            if use_lpw_stable_diffusion
+            else None,
         ).to(self._device)
+
         if scheduler:
-            self.set_scheduler(scheduler)
+            self.set_scheduler(scheduler)  # might implement karras sigmas to this
+        else:
+            if orig_scheduler:
+                self.set_scheduler(
+                    orig_scheduler.__class__,
+                    getattr(orig_scheduler, "use_karras_sigmas", False),
+                )
 
         self._scheduler = self._pipeline.scheduler.__class__
 
@@ -129,6 +166,7 @@ class BaseImagen:
 
         # for clip skip use
         self._clip_layers = self._pipeline.text_encoder.text_model.encoder.layers
+        self.set_clip_skip_amount(self.clip_skip_amount)
 
         # make a copy of the safety checker to be able to enable and disable it
         if hasattr(self._pipeline, "safety_checker"):

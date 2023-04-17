@@ -1,7 +1,6 @@
 from diffusers import StableDiffusionImg2ImgPipeline
-from .text2img import GeneratedImage
+from .base import BaseImagen, GeneratedImage
 from dataclasses import dataclass
-from .base import BaseImagen
 from typing import Callable
 from PIL.Image import Image
 from . import utils
@@ -13,11 +12,11 @@ class Img2ImgGeneratedImage(GeneratedImage):
 
 
 class SDImg2Img(BaseImagen):
-    def set_model(self, model: str, lpw_stable_diffusion: bool = False):
+    def set_model(self, model: str, use_lpw_stable_diffusion: bool = False):
         self._set_model(
             model,
             StableDiffusionImg2ImgPipeline,
-            lpw_stable_diffusion=lpw_stable_diffusion,
+            use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
 
     def generate_image(

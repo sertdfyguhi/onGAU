@@ -59,13 +59,13 @@ model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "m
 _class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
 try:
-    imagen = _class(model_path, config.DEVICE, config.LOAD_LPWSD_BY_DEFAULT)
+    imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 except Exception:
     print(model_path, "does not exist. fallback on default model")
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"
     )
-    imagen = _class(model_path, config.DEVICE, config.LOAD_LPWSD_BY_DEFAULT)
+    imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 
 s = user_settings["scheduler"]
 
@@ -89,7 +89,7 @@ else:
 for op in [
     "vae_slicing",
     "xformers_memory_attention",
-    "compel_weighting" if not config.LOAD_LPWSD_BY_DEFAULT else None,
+    "compel_weighting" if not config.USE_LPWSD_BY_DEFAULT else None,
 ]:
     if op and user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
@@ -210,9 +210,11 @@ def generate_image_callback():
         update_window_title(f"Loading {model}...")
 
         try:
-            imagen.set_model(model)
-        except Exception:
+            imagen.set_model(model, config.USE_LPWSD_BY_DEFAULT)
+        except Exception as e:
+            print(e.with_traceback())
             print(model, "does not exist")
+            return
 
         dpg.hide_item("status_text")
         update_window_title()
