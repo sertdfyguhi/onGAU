@@ -95,6 +95,8 @@ class SDImg2Img(BaseImagen):
                     seed=seeds[i],
                     pipeline=self.pipeline,
                     scheduler=self.scheduler,
+                    karras_sigmas_used=self._karras_sigmas_used,
+                    clip_skip=self._clip_skip_amount,
                     width=image.size[0],
                     height=image.size[1],
                 )

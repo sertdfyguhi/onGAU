@@ -141,8 +141,13 @@ def save_image(image_info: GeneratedImage):
     metadata.add_text("guidance_scale", str(image_info.guidance_scale))
     metadata.add_text("step_count", str(image_info.step_count))
     metadata.add_text("pipeline", image_info.pipeline.__name__)
-    metadata.add_text("scheduler", image_info.scheduler.__name__)
+    metadata.add_text(
+        "scheduler",
+        image_info.scheduler.__name__
+        + (" Karras" if image_info.karras_sigmas_used else ""),
+    )
     metadata.add_text("seed", str(image_info.seed))
+    metadata.add_text("clip_skip", str(image_info.clip_skip))
     if type(imagen) == SDImg2Img:
         metadata.add_text("base_image_path", image_info.base_image_path)
 
@@ -220,7 +225,10 @@ def generate_image_callback():
         update_window_title()
 
     scheduler = dpg.get_value("scheduler")
-    if scheduler != imagen.scheduler.__name__:
+    if (
+        imagen.karras_sigmas_used != (karras := scheduler[-6:] == "Karras")
+        or scheduler != imagen.scheduler.__name__
+    ):
         if scheduler[-6:] == "Karras":
             imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
         else:

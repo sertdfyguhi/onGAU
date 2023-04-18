@@ -2,7 +2,6 @@ from diffusers import SchedulerMixin, DiffusionPipeline
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
-import copy
 
 
 @dataclass(frozen=True)
@@ -16,6 +15,8 @@ class GeneratedImage:
     seed: int
     pipeline: DiffusionPipeline
     scheduler: SchedulerMixin
+    karras_sigmas_used: bool
+    clip_skip: int
     width: int
     height: int
 
@@ -29,6 +30,7 @@ class BaseImagen:
         self._scheduler = None
         self._embedding_models_loaded = []
         self._clip_skip_amount = 0
+        self._karras_sigmas_used = False
         self._safety_checker_enabled = False
         self._attention_slicing_enabled = False
         self._vae_slicing_enabled = False
@@ -84,6 +86,10 @@ class BaseImagen:
     def lpw_stable_diffusion_used(self):
         return self._lpw_stable_diffusion_used
 
+    @property
+    def karras_sigmas_used(self):
+        return self._karras_sigmas_used
+
     @classmethod
     def from_class(cls, original):
         c = cls(
@@ -93,11 +99,7 @@ class BaseImagen:
         c.set_clip_skip_amount(original.clip_skip_amount)
 
         if original.scheduler:
-            c.set_scheduler(
-                original.scheduler,
-                # using private vars here :face_vomiting:
-                getattr(original._pipeline.scheduler, "use_karras_sigmas", False),
-            )
+            c.set_scheduler(original.scheduler, original.karras_sigmas_used)
 
         if not original.safety_checker_enabled:
             c.disable_safety_checker()
@@ -134,7 +136,7 @@ class BaseImagen:
         orig_scheduler = None
 
         if hasattr(self, "_pipeline"):
-            orig_scheduler = copy.deepcopy(self._pipeline.scheduler)
+            orig_scheduler = self._pipeline.scheduler.__class__
 
             del self._pipeline
             if self._compel_weighting_enabled:
@@ -155,8 +157,8 @@ class BaseImagen:
         else:
             if orig_scheduler:
                 self.set_scheduler(
-                    orig_scheduler.__class__,
-                    getattr(orig_scheduler, "use_karras_sigmas", False),
+                    orig_scheduler,
+                    self._karras_sigmas_used,
                 )
 
         self._scheduler = self._pipeline.scheduler.__class__
@@ -220,7 +222,7 @@ class BaseImagen:
             )
 
         self._scheduler = scheduler
-        self._scheduler_uses_karras_sigmas = use_karras_sigmas
+        self._karras_sigmas_used = use_karras_sigmas
 
     def enable_safety_checker(self):
         if hasattr(self._pipeline, "safety_checker"):
