@@ -1,10 +1,14 @@
 import dearpygui.dearpygui as dpg
 import configparser
 import config
+import os
 
 
 class UserSettings:
     def __init__(self, settings_file: str):
+        if not os.path.isfile(settings_file):
+            open(settings_file, "w").close()
+
         self._settings_file = settings_file
         self._config = configparser.ConfigParser()
         self._config.read(settings_file)

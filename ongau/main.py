@@ -50,9 +50,6 @@ FILE_DIR = os.path.dirname(__file__)
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 
 # load user settings
-if not os.path.isfile(config.USER_SETTINGS_FILE):
-    open(config.USER_SETTINGS_FILE, "w").close()
-
 settings_manager = UserSettings(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_user_settings()
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
@@ -217,7 +214,6 @@ def generate_image_callback():
         try:
             imagen.set_model(model, config.USE_LPWSD_BY_DEFAULT)
         except Exception as e:
-            print(e.with_traceback())
             print(model, "does not exist")
             return
 

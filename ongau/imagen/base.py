@@ -2,6 +2,7 @@ from diffusers import SchedulerMixin, DiffusionPipeline
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
+import os
 
 
 @dataclass(frozen=True)
@@ -196,8 +197,11 @@ class BaseImagen:
         self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
 
     def load_embedding_model(self, embedding_model_path: str):
+        print("loading embedding model", embedding_model_path)
         self._embedding_models_loaded.append(embedding_model_path)
-        self._pipeline.load_textual_inversion(embedding_model_path)
+        self._pipeline.load_textual_inversion(
+            embedding_model_path, os.path.basename(embedding_model_path).split(".")[0]
+        )
 
     def set_clip_skip_amount(self, amount: int = None):
         if amount >= len(self._clip_layers):

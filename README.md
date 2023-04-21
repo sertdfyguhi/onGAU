@@ -26,6 +26,11 @@ pip3 install -r requirements.txt
 python3 onGAU/main.py
 ```
 
+## Scripts
+
+`pnginfo.py`:  
+&nbsp;&nbsp;&nbsp;Shows the png metadata (prompt, negative prompt...) of a png file.
+
 ## Todo
 
 - [x] Show total generation time
