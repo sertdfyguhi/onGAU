@@ -1,5 +1,3 @@
-#!/opt/homebrew/bin/python3
-
 from termcolor import colored
 from PIL import Image, UnidentifiedImageError
 from sys import argv

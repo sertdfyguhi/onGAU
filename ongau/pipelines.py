@@ -2,6 +2,7 @@ from imagen import SDImg2Img, Img2ImgGeneratedImage, Text2Img, GeneratedImage
 from PIL import UnidentifiedImageError, Image
 import dearpygui.dearpygui as dpg
 from typing import Callable
+import logger
 import time
 import re
 import os
@@ -18,7 +19,7 @@ def _callback(step: int, step_count: int, progress_callback: Callable):
 
 
 def _error(error: str):
-    print(error)
+    logger.error(error)
     dpg.hide_item("progress_bar")
     dpg.set_value("status_text", error)
     dpg.show_item("status_text")
@@ -43,12 +44,12 @@ def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedIma
                 else [int(s) for s in re.split(r"[, ]+", seed)]
             )
         except ValueError:
-            _error("seeds provided are not integers")
+            _error("Seeds provided are not integers.")
             return
 
     last_step_time = time.time()
 
-    print("generating image...")
+    logger.info("Starting generation...")
 
     return imagen.generate_image(
         prompt=prompt,
@@ -87,23 +88,23 @@ def img2img(
                 else [int(s) for s in re.split(r"[, ]+", seed)]
             )
         except ValueError:
-            _error("seeds provided are not integers")
+            _error("Seeds provided are not integers.")
             return
 
     if not os.path.isfile(base_image_path):
-        _error("base image path does not exist")
+        _error("Base image path does not exist.")
         return
 
     try:
         base_image = Image.open(base_image_path).resize(size).convert("RGB")
         base_image.filename = base_image_path
     except UnidentifiedImageError:
-        _error("base image path is not an image file")
+        _error("Base image path is not an image file.")
         return
 
     last_step_time = time.time()
 
-    print("generating image...")
+    logger.info("Starting generation...")
 
     return imagen.generate_image(
         base_image=base_image,

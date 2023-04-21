@@ -129,8 +129,6 @@ class BaseImagen:
         scheduler: SchedulerMixin = None,
         use_lpw_stable_diffusion: bool = False,
     ) -> None:
-        print(f"loading {model} with {self._device}")
-
         self._model = model
         self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
@@ -197,7 +195,6 @@ class BaseImagen:
         self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
 
     def load_embedding_model(self, embedding_model_path: str):
-        print("loading embedding model", embedding_model_path)
         self._embedding_models_loaded.append(embedding_model_path)
         self._pipeline.load_textual_inversion(
             embedding_model_path, os.path.basename(embedding_model_path).split(".")[0]
@@ -205,7 +202,9 @@ class BaseImagen:
 
     def set_clip_skip_amount(self, amount: int = None):
         if amount >= len(self._clip_layers):
-            raise ValueError("cannot skip more clip layers")
+            raise ValueError(
+                "Clip skip higher than amount of clip layers, no clip skip has been applied."
+            )
 
         self._pipeline.text_encoder.text_model.encoder.layers = (
             self._clip_layers[:-amount] if amount else self._clip_layers
@@ -265,7 +264,7 @@ class BaseImagen:
     def enable_compel_weighting(self):
         if self._lpw_stable_diffusion_used:
             raise RuntimeError(
-                "compel prompt weighting cannot be used when using lpw_stable_diffusion"
+                "Compel prompt weighting cannot be used when using LPWSD pipeline."
             )
 
         self._compel_weighting_enabled = True

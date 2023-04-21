@@ -8,6 +8,7 @@ from torch import cuda
 import imagesize
 import pipelines
 import pyperclip
+import logger
 import config
 import utils
 import time
@@ -55,13 +56,15 @@ user_settings = settings_manager.get_user_settings()
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 _class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
+logger.info(f"Loading {model_path}...")
 try:
     imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 except Exception:
-    print(model_path, "does not exist. fallback on default model")
+    logger.error(f"{model_path} does not exist, falling back default model.")
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"
     )
+    logger.info(f"Loading {model_path}...")
     imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 
 s = user_settings["scheduler"]
@@ -93,12 +96,13 @@ for op in [
 
 # load embedding models
 for model in config.EMBEDDING_MODELS:
+    emb_model_path = utils.append_dir_if_startswith(model, FILE_DIR, "models/")
+    logger.info(f"Loading embedding model {emb_model_path}...")
+
     try:
-        imagen.load_embedding_model(
-            utils.append_dir_if_startswith(model, FILE_DIR, "models/")
-        )
-    except Exception:
-        print(model, "does not exist. skipping")
+        imagen.load_embedding_model(emb_model_path)
+    except Exception as e:
+        logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
 
 dpg.create_context()
 dpg.create_viewport(
@@ -191,7 +195,9 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
     progress = step / step_count
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
 
-    print("generating...", overlay)
+    print(
+        f"{logger.create('Generating... ', [logger.INFO, logger.BOLD])}{logger.create(overlay, [logger.INFO])}"
+    )
 
     update_window_title(f"Generating... {overlay}")
 
@@ -210,11 +216,12 @@ def generate_image_callback():
     if model != imagen.model:
         status(f"Loading {model}...")
         update_window_title(f"Loading {model}...")
+        logger.info(f"Loading {model_path}...")
 
         try:
             imagen.set_model(model, config.USE_LPWSD_BY_DEFAULT)
         except Exception as e:
-            print(model, "does not exist")
+            logger.error(f"{model} does not exist.")
             return
 
         dpg.hide_item("status_text")
@@ -225,7 +232,8 @@ def generate_image_callback():
         imagen.karras_sigmas_used != (karras := scheduler[-6:] == "Karras")
         or scheduler != imagen.scheduler.__name__
     ):
-        if scheduler[-6:] == "Karras":
+        logger.info(f"Loading scheduler {scheduler}...")
+        if karras:
             imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
         else:
             imagen.set_scheduler(getattr(schedulers, scheduler))
@@ -235,7 +243,7 @@ def generate_image_callback():
         try:
             imagen.set_clip_skip_amount(clip_skip)
         except ValueError as e:
-            print(e, ", no clip skip will be applied")
+            logger.error(str(e))
 
     dpg.show_item("progress_bar")
     dpg.hide_item("save_button")
@@ -255,9 +263,17 @@ def generate_image_callback():
 
     texture_manager.prepare(images)
 
+    plural = "s" if len(images) > 1 else ""
+    total_time = time.time() - start_time
+
     print(
-        "finished generating image; seeds:",
-        ", ".join([str(image.seed) for image in texture_manager.images]),
+        logger.create(
+            f"Finished generating image{plural}.", [logger.SUCCESS, logger.BOLD]
+        )
+    )
+    logger.info(
+        f"""Seed{plural}: {', '.join([str(image.seed) for image in images])}
+Total time: {total_time:.1f}s"""
     )
 
     update_window_title()
@@ -268,7 +284,7 @@ def generate_image_callback():
     dpg.set_value("output_image_index", texture_manager.to_counter_string())
     dpg.set_value(
         "info_text",
-        f"Current Image Seed: {texture_manager.images[0].seed}\nTotal time: {time.time() - start_time:.1f}s",
+        f"Current Image Seed: {images[0].seed}\nTotal time: {total_time:.1f}s",
     )
 
     dpg.hide_item("progress_bar")
@@ -301,16 +317,15 @@ def checkbox_callback(tag, value):
         getattr(imagen, func_name)()
     except Exception as e:
         status(str(e))
-        print(e)
-
+        logger.error(e)
         dpg.set_value(tag, not value)
 
 
 def toggle_xformers(tag, value):
     if not cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
-        status("xformers is only available for GPUs")
-        print("xformers is only available for GPUs")
+        status("Xformers is only available for GPUs")
+        logger.error("Xformers is only available for GPUs.")
         return
 
     try:
@@ -318,11 +333,9 @@ def toggle_xformers(tag, value):
     except ModuleNotFoundError:
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
-        status(
-            "to enable xformers memory attention you need xformers. run `pip3 install xformers`"
-        )
-        print(
-            "to enable xformers memory attention you need xformers. run \033[1mpip3 install xformers\033[0m"
+        status("You don't have xformers installed. Please run `pip3 install xformers`.")
+        logger.error(
+            "You don't have xformers installed. Please run \033[1mpip3 install xformers\033[0m."
         )
 
 
@@ -338,6 +351,8 @@ def update_pipeline(_, pipeline):
 
     status(f"Loading {pipeline}...")
     update_window_title(f"Loading {pipeline}...")
+
+    logger.info(f"Loading {pipeline} pipeline...")
 
     match pipeline:
         case "Text2Img":
@@ -557,7 +572,7 @@ with dpg.window(tag="window"):
 dpg.set_primary_window("window", True)
 
 if __name__ == "__main__":
-    print("starting GUI")
+    logger.info("Starting GUI...")
     dpg.set_exit_callback(settings_manager.save_user_settings)
     dpg.setup_dearpygui()
     dpg.show_viewport()
