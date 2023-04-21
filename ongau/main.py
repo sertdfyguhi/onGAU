@@ -60,7 +60,7 @@ logger.info(f"Loading {model_path}...")
 try:
     imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 except Exception:
-    logger.error(f"{model_path} does not exist, falling back default model.")
+    logger.error(f"{model_path} does not exist, falling back to default model.")
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"
     )
@@ -84,7 +84,7 @@ if user_settings["attention_slicing"] != None:
         imagen.enable_attention_slicing()
 else:
     if imagen.device == "mps":
-        imagen.enable_attention_slicing()  # attention slicing boosts performance on m1 computers
+        imagen.enable_attention_slicing()  # attention slicing boosts performance on apple silicon
 
 for op in [
     "vae_slicing",
@@ -101,7 +101,7 @@ for model in config.EMBEDDING_MODELS:
 
     try:
         imagen.load_embedding_model(emb_model_path)
-    except Exception as e:
+    except OSError:
         logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
 
 dpg.create_context()
@@ -379,12 +379,12 @@ def base_image_path_callback():
 
     base_image_path = dpg.get_value("base_image_path")
     if not os.path.isfile(base_image_path):
-        status("base image path does not exist")
+        status("Base image path does not exist.")
         return
 
     image_size = imagesize.get(base_image_path)
     if image_size == (-1, -1):
-        status("base image path is not an image file")
+        status("Base image path is not an image file.")
         return
 
     base_image_aspect_ratio = image_size[0] / image_size[1]
@@ -572,7 +572,7 @@ with dpg.window(tag="window"):
 dpg.set_primary_window("window", True)
 
 if __name__ == "__main__":
-    logger.info("Starting GUI...")
+    logger.success("Starting GUI...")
     dpg.set_exit_callback(settings_manager.save_user_settings)
     dpg.setup_dearpygui()
     dpg.show_viewport()

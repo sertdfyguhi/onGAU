@@ -215,7 +215,9 @@ class BaseImagen:
         self._pipeline = self._pipeline.to(device)
 
     def set_scheduler(self, scheduler: SchedulerMixin, use_karras_sigmas: bool = False):
-        if use_karras_sigmas:
+        if (
+            use_karras_sigmas
+        ):  # TODO: Set scheduler internal variable instead of reinstating when using same scheduler
             self._pipeline.scheduler = scheduler.from_config(
                 self._pipeline.scheduler.config, use_karras_sigmas=use_karras_sigmas
             )

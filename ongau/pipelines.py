@@ -11,9 +11,9 @@ last_step_time = None
 
 
 def _callback(step: int, step_count: int, progress_callback: Callable):
-    """calculates the time of the last step and calls progress callback"""
     global last_step_time
 
+    # Call provided progress callback with the calculated step time.
     progress_callback(step, step_count, time.time() - last_step_time)
     last_step_time = time.time()
 
@@ -38,6 +38,7 @@ def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedIma
     seed = dpg.get_value("seed")
     if seed:
         try:
+            # Split and convert seeds into integers.
             seed = (
                 int(seed)
                 if seed.isdigit()
@@ -55,7 +56,6 @@ def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedIma
         prompt=prompt,
         negative_prompt=negative_prompt,
         size=size,
-        # strength=strength,
         guidance_scale=guidance_scale,
         step_count=step_count,
         seed=seed,
@@ -82,6 +82,7 @@ def img2img(
     seed = dpg.get_value("seed")
     if seed:
         try:
+            # Split and convert seeds into integers.
             seed = (
                 int(seed)
                 if seed.isdigit()
@@ -97,6 +98,7 @@ def img2img(
 
     try:
         base_image = Image.open(base_image_path).resize(size).convert("RGB")
+        # To be used when saving image.
         base_image.filename = base_image_path
     except UnidentifiedImageError:
         _error("Base image path is not an image file.")
@@ -110,7 +112,6 @@ def img2img(
         base_image=base_image,
         prompt=prompt,
         negative_prompt=negative_prompt,
-        # strength=strength,
         guidance_scale=guidance_scale,
         step_count=step_count,
         seed=seed,
