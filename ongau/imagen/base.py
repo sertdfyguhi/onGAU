@@ -144,12 +144,18 @@ class BaseImagen:
             if hasattr(self, "_orig_safety_checker"):
                 del self._orig_safety_checker
 
-        self._pipeline = pipeline.from_pretrained(
+        self._pipeline = (
+            pipeline.from_ckpt
+            if model.endswith((".ckpt", ".safetensors"))
+            else pipeline.from_pretrained
+        )(
             model,
             custom_pipeline="lpw_stable_diffusion"
             if use_lpw_stable_diffusion
             else None,
-        ).to(self._device)
+        ).to(
+            self._device
+        )
 
         if scheduler:
             self.set_scheduler(scheduler)  # might implement karras sigmas to this
@@ -195,10 +201,15 @@ class BaseImagen:
         self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
 
     def load_embedding_model(self, embedding_model_path: str):
+        try:
+            self._pipeline.load_textual_inversion(
+                embedding_model_path,
+                os.path.basename(embedding_model_path).split(".")[0],
+            )
+        except ValueError:  # when tokenizer already has that token
+            return
+
         self._embedding_models_loaded.append(embedding_model_path)
-        self._pipeline.load_textual_inversion(
-            embedding_model_path, os.path.basename(embedding_model_path).split(".")[0]
-        )
 
     def set_clip_skip_amount(self, amount: int = None):
         if amount >= len(self._clip_layers):
@@ -228,6 +239,9 @@ class BaseImagen:
 
         self._scheduler = scheduler
         self._karras_sigmas_used = use_karras_sigmas
+
+    def save_weights(self, dir_path: str):
+        self._pipeline.save_pretrained(dir_path)
 
     def enable_safety_checker(self):
         if hasattr(self._pipeline, "safety_checker"):

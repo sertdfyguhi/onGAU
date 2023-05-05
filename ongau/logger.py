@@ -3,6 +3,7 @@ RESET = "\033[m"
 BOLD = "1"
 ERROR = "31"
 SUCCESS = "32"
+WARNING = "33"
 INFO = "36"
 
 
@@ -11,7 +12,11 @@ def create(msg: str, codes: list[int]):
 
 
 def error(msg: str):
-    print(f"{create('Error: ', [ERROR, BOLD])}{create(msg, [ERROR])}")
+    print(f"{create('ERROR: ', [ERROR, BOLD])}{create(msg, [ERROR])}")
+
+
+def warn(msg: str):
+    print(f"{create('WARNING: ', [WARNING, BOLD])}{create(msg, [WARNING])}")
 
 
 def success(msg: str):

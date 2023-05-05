@@ -1,4 +1,4 @@
-from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionPipeline
 from .base import BaseImagen, GeneratedImage
 from typing import Callable
 from . import utils
@@ -8,7 +8,9 @@ from . import utils
 class Text2Img(BaseImagen):
     def set_model(self, model: str, use_lpw_stable_diffusion: bool = False):
         self._set_model(
-            model, DiffusionPipeline, use_lpw_stable_diffusion=use_lpw_stable_diffusion
+            model,
+            StableDiffusionPipeline,
+            use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
 
     def generate_image(

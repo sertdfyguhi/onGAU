@@ -1,15 +1,13 @@
 from imagen import Text2Img, SDImg2Img, GeneratedImage
 from texture_manager import TextureManager
 from user_settings import UserSettings
-from PIL.PngImagePlugin import PngInfo
+import logger, config, pipelines
+
 import dearpygui.dearpygui as dpg
 from diffusers import schedulers
 from torch import cuda
 import imagesize
-import pipelines
 import pyperclip
-import logger
-import config
 import utils
 import time
 import os
@@ -26,13 +24,6 @@ SCHEDULERS = [
     "EulerAncestralDiscreteScheduler",
     "EulerAncestralDiscreteScheduler Karras",
     "EulerDiscreteScheduler",
-    "FlaxDDIMScheduler",
-    "FlaxDDPMScheduler",
-    "FlaxDPMSolverMultistepScheduler",
-    "FlaxKarrasVeScheduler",
-    "FlaxLMSDiscreteScheduler",
-    "FlaxPNDMScheduler",
-    "FlaxScoreSdeVeScheduler",
     "HeunDiscreteScheduler",
     "IPNDMScheduler",
     "KDPM2AncestralDiscreteScheduler",
@@ -56,7 +47,14 @@ user_settings = settings_manager.get_user_settings()
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 _class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
+if config.USE_LPWSD_BY_DEFAULT and model_path.endswith((".ckpt", ".safetensors")):
+    logger.warn(
+        "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
+    )
+    config.USE_LPWSD_BY_DEFAULT = False
+
 logger.info(f"Loading {model_path}...")
+
 try:
     imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 except Exception:
@@ -67,16 +65,14 @@ except Exception:
     logger.info(f"Loading {model_path}...")
     imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
 
-s = user_settings["scheduler"]
-
-if s:
-    if s[-6:] == "Karras":
-        imagen.set_scheduler(getattr(schedulers, s[:-7]), True)
+if scheduler := user_settings["scheduler"]:
+    if scheduler[-6:] == "Karras":
+        imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
     else:
-        imagen.set_scheduler(getattr(schedulers, s))
+        imagen.set_scheduler(getattr(schedulers, scheduler))
 
 
-if user_settings["safety_checker"] == None or user_settings["safety_checker"] == "True":
+if user_settings["safety_checker"] in [None, "True"]:
     imagen.disable_safety_checker()
 
 if user_settings["attention_slicing"] != None:
@@ -121,41 +117,40 @@ def update_window_title(info: str = None):
     )
 
 
-def status(msg: str):
+def status(msg: str, log_func=logger.info):
+    if log_func:
+        log_func(msg)
     dpg.set_value("status_text", msg)
     dpg.show_item("status_text")
 
 
-def save_image(image_info: GeneratedImage):
+def save():
     global file_number
 
-    saved_file_path = config.SAVE_FILE_PATTERN % file_number
+    file_path = config.SAVE_FILE_PATTERN % file_number
 
     dpg.set_item_label("save_button", "Saving...")
-    update_window_title(f"Saving to {saved_file_path}...")
+    update_window_title(f"Saving to {file_path}...")
 
-    metadata = PngInfo()
-    metadata.add_text("model", image_info.model)
-    metadata.add_text("prompt", image_info.prompt)
-    metadata.add_text("negative_prompt", image_info.negative_prompt)
-    # metadata.add_text("strength", str(image_info.strength))
-    metadata.add_text("guidance_scale", str(image_info.guidance_scale))
-    metadata.add_text("step_count", str(image_info.step_count))
-    metadata.add_text("pipeline", image_info.pipeline.__name__)
-    metadata.add_text(
-        "scheduler",
-        image_info.scheduler.__name__
-        + (" Karras" if image_info.karras_sigmas_used else ""),
-    )
-    metadata.add_text("seed", str(image_info.seed))
-    metadata.add_text("clip_skip", str(image_info.clip_skip))
-    if type(imagen) == SDImg2Img:
-        metadata.add_text("base_image_path", image_info.base_image_path)
-
-    image_info.image.save(config.SAVE_FILE_PATTERN % file_number, pnginfo=metadata)
-    file_number += 1
+    utils.save_image(texture_manager.current()[1], file_path)
 
     dpg.set_item_label("save_button", "Save Image")
+    update_window_title()
+
+    file_number += 1
+
+
+def save_model():
+    dpg.set_item_label("save_model", "Saving model..")
+    update_window_title("Saving model...")
+
+    dir_path = os.path.join(
+        FILE_DIR, "models", os.path.basename(imagen.model).split(".")[0]
+    )  # get name of file
+    os.mkdir(dir_path)
+    imagen.save_weights(dir_path)
+
+    dpg.set_item_label("save_model", "Save model weights")
     update_window_title()
 
 
@@ -187,7 +182,7 @@ def update_image(texture_tag: str | int, image: GeneratedImage):
 
     dpg.configure_item(
         "save_button",
-        callback=lambda: save_image(image),
+        callback=save,
     )
 
 
@@ -208,20 +203,25 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 
 def generate_image_callback():
-    global last_step_time
-
     texture_manager.clear()  # save memory
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
     if model != imagen.model:
         status(f"Loading {model}...")
         update_window_title(f"Loading {model}...")
-        logger.info(f"Loading {model_path}...")
+
+        if config.USE_LPWSD_BY_DEFAULT and model.endswith((".ckpt", ".safetensors")):
+            logger.warn(
+                "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
+            )
+            config.USE_LPWSD_BY_DEFAULT = False
 
         try:
             imagen.set_model(model, config.USE_LPWSD_BY_DEFAULT)
         except Exception as e:
+            print(e)
             logger.error(f"{model} does not exist.")
+            status(f"{model} does not exist.")
             return
 
         dpg.hide_item("status_text")
@@ -229,8 +229,9 @@ def generate_image_callback():
 
     scheduler = dpg.get_value("scheduler")
     if (
-        imagen.karras_sigmas_used != (karras := scheduler[-6:] == "Karras")
-        or scheduler != imagen.scheduler.__name__
+        scheduler != imagen.scheduler.__name__ + " Karras"
+        if (karras := scheduler.endswith("Karras"))
+        else ""
     ):
         logger.info(f"Loading scheduler {scheduler}...")
         if karras:
@@ -271,8 +272,12 @@ def generate_image_callback():
             f"Finished generating image{plural}.", [logger.SUCCESS, logger.BOLD]
         )
     )
+
+    average_step_time = total_time / sum([image.step_count for image in images])
+
     logger.info(
         f"""Seed{plural}: {', '.join([str(image.seed) for image in images])}
+Average step time: {average_step_time:.1f}s
 Total time: {total_time:.1f}s"""
     )
 
@@ -284,7 +289,7 @@ Total time: {total_time:.1f}s"""
     dpg.set_value("output_image_index", texture_manager.to_counter_string())
     dpg.set_value(
         "info_text",
-        f"Current Image Seed: {images[0].seed}\nTotal time: {total_time:.1f}s",
+        f"Current Image Seed: {images[0].seed}\nAverage step time: {average_step_time:.1f}s\nTotal time: {total_time:.1f}s",
     )
 
     dpg.hide_item("progress_bar")
@@ -316,16 +321,14 @@ def checkbox_callback(tag, value):
     try:
         getattr(imagen, func_name)()
     except Exception as e:
-        status(str(e))
-        logger.error(e)
+        status(str(e), logger.error)
         dpg.set_value(tag, not value)
 
 
 def toggle_xformers(tag, value):
     if not cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
-        status("Xformers is only available for GPUs")
-        logger.error("Xformers is only available for GPUs.")
+        status("Xformers is only available for GPUs.", logger.error)
         return
 
     try:
@@ -333,9 +336,9 @@ def toggle_xformers(tag, value):
     except ModuleNotFoundError:
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
-        status("You don't have xformers installed. Please run `pip3 install xformers`.")
-        logger.error(
-            "You don't have xformers installed. Please run \033[1mpip3 install xformers\033[0m."
+        status(
+            "You don't have xformers installed. Please run `pip3 install xformers`.",
+            logger.error,
         )
 
 
@@ -351,8 +354,6 @@ def update_pipeline(_, pipeline):
 
     status(f"Loading {pipeline}...")
     update_window_title(f"Loading {pipeline}...")
-
-    logger.info(f"Loading {pipeline} pipeline...")
 
     match pipeline:
         case "Text2Img":
@@ -379,12 +380,12 @@ def base_image_path_callback():
 
     base_image_path = dpg.get_value("base_image_path")
     if not os.path.isfile(base_image_path):
-        status("Base image path does not exist.")
+        status("Base image path does not exist.", None)
         return
 
     image_size = imagesize.get(base_image_path)
     if image_size == (-1, -1):
-        status("Base image path is not an image file.")
+        status("Base image path is not an image file.", None)
         return
 
     base_image_aspect_ratio = image_size[0] / image_size[1]
@@ -490,7 +491,7 @@ with dpg.window(tag="window"):
 
     dpg.add_button(label="Advanced Configuration", callback=toggle_advanced_config)
 
-    with dpg.group(tag="advanced_config", show=False):
+    with dpg.group(tag="advanced_config", indent=7, show=False):
         dpg.add_combo(
             label="Pipeline",
             items=["Text2Img", "SDImg2Img"],
@@ -543,6 +544,11 @@ with dpg.window(tag="window"):
             tag="compel_weighting",
             default_value=imagen.compel_weighting_enabled,
             callback=checkbox_callback,
+        )
+        dpg.add_button(
+            label="Save model weights",
+            tag="save_model",
+            callback=save_model,
         )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)

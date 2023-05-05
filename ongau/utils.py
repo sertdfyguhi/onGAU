@@ -1,3 +1,6 @@
+from diffusers import StableDiffusionImg2ImgPipeline
+from PIL.PngImagePlugin import PngInfo
+from imagen import GeneratedImage
 import os
 
 
@@ -59,3 +62,26 @@ def resize_size_to_fit(
 def append_dir_if_startswith(path: str, dir: str, startswith: str):
     """Checks if a path starts with and if so appends a path to it"""
     return os.path.join(dir, path) if path.startswith(startswith) else path
+
+
+def save_image(image_info: GeneratedImage, file_path: str):
+    """Saves an image using a GeneratedImage object."""
+    metadata = PngInfo()
+    metadata.add_text("model", image_info.model)
+    metadata.add_text("prompt", image_info.prompt)
+    metadata.add_text("negative_prompt", image_info.negative_prompt)
+    # metadata.add_text("strength", str(image_info.strength))
+    metadata.add_text("guidance_scale", str(image_info.guidance_scale))
+    metadata.add_text("step_count", str(image_info.step_count))
+    metadata.add_text("pipeline", image_info.pipeline.__name__)
+    metadata.add_text(
+        "scheduler",
+        image_info.scheduler.__name__
+        + (" Karras" if image_info.karras_sigmas_used else ""),
+    )
+    metadata.add_text("seed", str(image_info.seed))
+    metadata.add_text("clip_skip", str(image_info.clip_skip))
+    if image_info.pipeline == StableDiffusionImg2ImgPipeline:
+        metadata.add_text("base_image_path", image_info.base_image_path)
+
+    image_info.image.save(file_path, pnginfo=metadata)

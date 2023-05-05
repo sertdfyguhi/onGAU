@@ -40,6 +40,8 @@ python3 onGAU/main.py
 - [x] Add textual inversion model loading
 - [x] Add Clip Skip parameter
 - [ ] Add CPU model offloading
+- [x] Average step time
+- [x] Load .ckpt in app
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
