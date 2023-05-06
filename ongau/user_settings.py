@@ -3,6 +3,19 @@ import configparser
 import config
 import os
 
+DEFAULT_VALUES = {
+    "model": config.DEFAULT_MODEL,
+    "prompt": config.DEFAULT_PROMPT,
+    "negative_prompt": config.DEFAULT_NEGATIVE_PROMPT,
+    "seed": config.DEFAULT_SEED,
+    "pipeline": config.DEFAULT_PIPELINE,
+    "guidance_scale": config.DEFAULT_GUIDANCE_SCALE,
+    "step_count": config.DEFAULT_STEP_COUNT,
+    "image_amount": config.DEFAULT_IMAGE_AMOUNT,
+    "width": config.DEFAULT_WIDTH,
+    "height": config.DEFAULT_HEIGHT,
+}
+
 
 class UserSettings:
     def __init__(self, settings_file: str):
@@ -29,7 +42,7 @@ class UserSettings:
             "height",
         ]:
             user_settings[op] = self._config.get(
-                "user_settings", op, fallback=getattr(config, "DEFAULT_" + op.upper())
+                "user_settings", op, fallback=DEFAULT_VALUES[op]
             )
 
         for op in [

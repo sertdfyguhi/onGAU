@@ -195,7 +195,7 @@ class BaseImagen:
             self.enable_compel_weighting()
 
         for model in self._embedding_models_loaded:
-            self._pipeline.load_textual_inversion(model)
+            self.load_embedding_model(model)
 
     def load_lpw_stable_diffusion(self):
         self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
@@ -216,6 +216,9 @@ class BaseImagen:
             raise ValueError(
                 "Clip skip higher than amount of clip layers, no clip skip has been applied."
             )
+
+        if amount == self._clip_skip_amount:
+            return
 
         self._pipeline.text_encoder.text_model.encoder.layers = (
             self._clip_layers[:-amount] if amount else self._clip_layers
@@ -241,7 +244,12 @@ class BaseImagen:
         self._karras_sigmas_used = use_karras_sigmas
 
     def save_weights(self, dir_path: str):
+        orig_clip_skip = self._clip_skip_amount
+        self.set_clip_skip_amount(0)
+
         self._pipeline.save_pretrained(dir_path)
+
+        self.set_clip_skip_amount(orig_clip_skip)
 
     def enable_safety_checker(self):
         if hasattr(self._pipeline, "safety_checker"):

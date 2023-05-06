@@ -3,6 +3,7 @@ from texture_manager import TextureManager
 from user_settings import UserSettings
 import logger, config, pipelines
 
+from huggingface_hub.utils import HFValidationError
 import dearpygui.dearpygui as dpg
 from diffusers import schedulers
 from torch import cuda
@@ -46,24 +47,25 @@ settings_manager = UserSettings(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_user_settings()
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 _class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
+use_LPWSD_by_default = config.USE_LPWSD_BY_DEFAULT
 
-if config.USE_LPWSD_BY_DEFAULT and model_path.endswith((".ckpt", ".safetensors")):
+if use_LPWSD_by_default and model_path.endswith((".ckpt", ".safetensors")):
     logger.warn(
         "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
     )
-    config.USE_LPWSD_BY_DEFAULT = False
+    use_LPWSD_by_default = False
 
 logger.info(f"Loading {model_path}...")
 
 try:
-    imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
+    imagen = _class(model_path, config.DEVICE, use_LPWSD_by_default)
 except Exception:
     logger.error(f"{model_path} does not exist, falling back to default model.")
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"
     )
     logger.info(f"Loading {model_path}...")
-    imagen = _class(model_path, config.DEVICE, config.USE_LPWSD_BY_DEFAULT)
+    imagen = _class(model_path, config.DEVICE, use_LPWSD_by_default)
 
 if scheduler := user_settings["scheduler"]:
     if scheduler[-6:] == "Karras":
@@ -85,7 +87,7 @@ else:
 for op in [
     "vae_slicing",
     "xformers_memory_attention",
-    "compel_weighting" if not config.USE_LPWSD_BY_DEFAULT else None,
+    "compel_weighting" if not use_LPWSD_by_default else None,
 ]:
     if op and user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
@@ -210,18 +212,17 @@ def generate_image_callback():
         status(f"Loading {model}...")
         update_window_title(f"Loading {model}...")
 
-        if config.USE_LPWSD_BY_DEFAULT and model.endswith((".ckpt", ".safetensors")):
+        if use_LPWSD_by_default and model.endswith((".ckpt", ".safetensors")):
             logger.warn(
                 "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
             )
-            config.USE_LPWSD_BY_DEFAULT = False
+            use_LPWSD_by_default = False
 
         try:
-            imagen.set_model(model, config.USE_LPWSD_BY_DEFAULT)
-        except Exception as e:
-            print(e)
+            imagen.set_model(model, use_LPWSD_by_default)
+        except HFValidationError as e:
             logger.error(f"{model} does not exist.")
-            status(f"{model} does not exist.")
+            status(f"{model} does not exist.", None)
             return
 
         dpg.hide_item("status_text")
