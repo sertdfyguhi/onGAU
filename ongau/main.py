@@ -205,6 +205,8 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 
 def generate_image_callback():
+    global use_LPWSD_by_default
+
     texture_manager.clear()  # save memory
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
@@ -223,6 +225,7 @@ def generate_image_callback():
         except HFValidationError as e:
             logger.error(f"{model} does not exist.")
             status(f"{model} does not exist.", None)
+            update_window_title()
             return
 
         dpg.hide_item("status_text")
