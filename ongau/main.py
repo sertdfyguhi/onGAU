@@ -59,7 +59,7 @@ logger.info(f"Loading {model_path}...")
 
 try:
     imagen = _class(model_path, config.DEVICE, use_LPWSD_by_default)
-except Exception:
+except HFValidationError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"

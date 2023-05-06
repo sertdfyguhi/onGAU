@@ -173,7 +173,8 @@ class BaseImagen:
 
         # for clip skip use
         self._clip_layers = self._pipeline.text_encoder.text_model.encoder.layers
-        self.set_clip_skip_amount(self.clip_skip_amount)
+        self._clip_skip_amount = 0
+        self.set_clip_skip_amount(self._clip_skip_amount)
 
         # make a copy of the safety checker to be able to enable and disable it
         if hasattr(self._pipeline, "safety_checker"):
@@ -223,6 +224,8 @@ class BaseImagen:
         self._pipeline.text_encoder.text_model.encoder.layers = (
             self._clip_layers[:-amount] if amount else self._clip_layers
         )
+
+        self._clip_skip_amount = amount
 
     def set_device(self, device: str):
         self._device = device
