@@ -173,8 +173,7 @@ class BaseImagen:
 
         # for clip skip use
         self._clip_layers = self._pipeline.text_encoder.text_model.encoder.layers
-        self._clip_skip_amount = 0
-        self.set_clip_skip_amount(self._clip_skip_amount)
+        self.set_clip_skip_amount(self._clip_skip_amount, force=True)
 
         # make a copy of the safety checker to be able to enable and disable it
         if hasattr(self._pipeline, "safety_checker"):
@@ -212,13 +211,13 @@ class BaseImagen:
 
         self._embedding_models_loaded.append(embedding_model_path)
 
-    def set_clip_skip_amount(self, amount: int = None):
+    def set_clip_skip_amount(self, amount: int = None, force: bool = False):
         if amount >= len(self._clip_layers):
             raise ValueError(
                 "Clip skip higher than amount of clip layers, no clip skip has been applied."
             )
 
-        if amount == self._clip_skip_amount:
+        if not force and amount == self._clip_skip_amount:
             return
 
         self._pipeline.text_encoder.text_model.encoder.layers = (
