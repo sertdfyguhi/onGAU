@@ -24,7 +24,7 @@ class GeneratedImage:
 
 class BaseImagen:
     def __init__(
-        self, model: str, device: str, lpw_stable_diffusion: bool = False
+        self, model: str, device: str, use_lpw_stable_diffusion: bool = False
     ) -> None:
         self._model = model
         self._device = device
@@ -37,7 +37,7 @@ class BaseImagen:
         self._vae_slicing_enabled = False
         self._xformers_memory_attention_enabled = False
         self._compel_weighting_enabled = False
-        self.set_model(model, lpw_stable_diffusion)
+        self.set_model(model, use_lpw_stable_diffusion)
 
     @property
     def model(self):

@@ -47,27 +47,36 @@ settings_manager = UserSettings(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_user_settings()
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 _class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
-use_LPWSD_by_default = config.USE_LPWSD_BY_DEFAULT
 
-if use_LPWSD_by_default and model_path.endswith((".ckpt", ".safetensors")):
+if user_settings["lpwsd_pipeline"] == "True" and model_path.endswith(
+    (".ckpt", ".safetensors")
+):
     logger.warn(
         "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
     )
-    use_LPWSD_by_default = False
+
+    user_settings["lpwsd_pipeline"] = "False"
+
 
 logger.info(f"Loading {model_path}...")
+use_lpwsd = user_settings["lpwsd_pipeline"] == "True"
 
 try:
-    imagen = _class(model_path, config.DEVICE, use_LPWSD_by_default)
+    imagen = _class(model_path, config.DEVICE, use_lpwsd)
 except HFValidationError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
+
     model_path = utils.append_dir_if_startswith(
         config.DEFAULT_MODEL, FILE_DIR, "models/"
     )
+
     logger.info(f"Loading {model_path}...")
-    imagen = _class(model_path, config.DEVICE, use_LPWSD_by_default)
+
+    # create class
+    imagen = _class(model_path, config.DEVICE, use_lpwsd)
 
 if scheduler := user_settings["scheduler"]:
+    # check if scheduler is using karras sigmas
     if scheduler[-6:] == "Karras":
         imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
     else:
@@ -87,7 +96,7 @@ else:
 for op in [
     "vae_slicing",
     "xformers_memory_attention",
-    "compel_weighting" if not use_LPWSD_by_default else None,
+    "compel_weighting" if not use_lpwsd else None,
 ]:
     if op and user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
@@ -122,6 +131,7 @@ def update_window_title(info: str = None):
 def status(msg: str, log_func=logger.info):
     if log_func:
         log_func(msg)
+
     dpg.set_value("status_text", msg)
     dpg.show_item("status_text")
 
@@ -205,8 +215,6 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 
 def generate_image_callback():
-    global use_LPWSD_by_default
-
     texture_manager.clear()  # save memory
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
@@ -214,14 +222,16 @@ def generate_image_callback():
         status(f"Loading {model}...")
         update_window_title(f"Loading {model}...")
 
-        if use_LPWSD_by_default and model.endswith((".ckpt", ".safetensors")):
+        use_lpwsd = imagen.lpw_stable_diffusion_used
+
+        if use_lpwsd and model.endswith((".ckpt", ".safetensors")):
             logger.warn(
                 "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
             )
-            use_LPWSD_by_default = False
+            use_lpwsd = False
 
         try:
-            imagen.set_model(model, use_LPWSD_by_default)
+            imagen.set_model(model, use_lpwsd)
         except HFValidationError as e:
             logger.error(f"{model} does not exist.")
             status(f"{model} does not exist.", None)
@@ -238,10 +248,9 @@ def generate_image_callback():
         else ""
     ):
         logger.info(f"Loading scheduler {scheduler}...")
-        if karras:
-            imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
-        else:
-            imagen.set_scheduler(getattr(schedulers, scheduler))
+        imagen.set_scheduler(
+            getattr(schedulers, scheduler[:-7] if karras else scheduler), karras
+        )
 
     clip_skip = dpg.get_value("clip_skip")
     if clip_skip != imagen.clip_skip_amount:
@@ -254,6 +263,7 @@ def generate_image_callback():
     dpg.hide_item("save_button")
     dpg.hide_item("info_group")
     dpg.hide_item("output_image_group")
+    dpg.hide_item("status_text")
 
     start_time = time.time()
     imagen_type = type(imagen)
@@ -305,10 +315,7 @@ Total time: {total_time:.1f}s"""
 def change_image(tag):
     global image_index
 
-    if tag == "next":
-        current = texture_manager.next()
-    else:
-        current = texture_manager.previous()
+    current = texture_manager.next() if tag == "next" else texture_manager.previous()
 
     if current:
         update_image(*current)
@@ -398,6 +405,25 @@ def base_image_path_callback():
     dpg.set_value("height", image_size[1])
 
     dpg.hide_item("status_text")  # to remove any errors shown before
+
+
+def lpwsd_callback(_, value):
+    if imagen.compel_weighting_enabled:
+        status(
+            "Compel prompt weighting cannot be used when using LPWSD pipeline.",
+            logger.error,
+        )
+        return
+    elif imagen.model.endswith((".ckpt", ".safetensors")):
+        status(
+            "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used.",
+            logger.error,
+        )
+        return
+
+    status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
+    imagen.set_model(imagen.model, value)
+    dpg.hide_item("status_text")
 
 
 # register font
@@ -549,6 +575,12 @@ with dpg.window(tag="window"):
             default_value=imagen.compel_weighting_enabled,
             callback=checkbox_callback,
         )
+        dpg.add_checkbox(
+            label="Enable LPW Stable Diffusion Pipeline",
+            tag="lpwsd_pipeline",
+            default_value=imagen.lpw_stable_diffusion_used,
+            callback=lpwsd_callback,
+        )
         dpg.add_button(
             label="Save model weights",
             tag="save_model",
@@ -582,8 +614,10 @@ with dpg.window(tag="window"):
 dpg.set_primary_window("window", True)
 
 if __name__ == "__main__":
-    logger.success("Starting GUI...")
     dpg.set_exit_callback(settings_manager.save_user_settings)
+
+    logger.success("Starting GUI...")
+
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
