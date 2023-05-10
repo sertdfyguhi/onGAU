@@ -15,31 +15,6 @@ import time
 import os
 
 # Constants
-SCHEDULERS = [
-    "DDIMInverseScheduler",
-    "DDIMScheduler",
-    "DDPMScheduler",
-    "DEISMultistepScheduler",
-    "DPMSolverMultistepScheduler",
-    "DPMSolverMultistepScheduler Karras",
-    "DPMSolverSinglestepScheduler",
-    "EulerAncestralDiscreteScheduler",
-    "EulerAncestralDiscreteScheduler Karras",
-    "EulerDiscreteScheduler",
-    "HeunDiscreteScheduler",
-    "IPNDMScheduler",
-    "KDPM2AncestralDiscreteScheduler",
-    "KDPM2DiscreteScheduler",
-    "KarrasVeScheduler",
-    "LMSDiscreteScheduler",
-    "PNDMScheduler",
-    "RePaintScheduler",
-    "ScoreSdeVeScheduler",
-    "ScoreSdeVpScheduler",
-    "UnCLIPScheduler",
-    "UniPCMultistepScheduler",
-    "VQDiffusionScheduler",
-]
 FILE_DIR = os.path.dirname(__file__)
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 
@@ -111,6 +86,16 @@ for model in config.EMBEDDING_MODELS:
         imagen.load_embedding_model(emb_model_path)
     except OSError:
         logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
+
+# load lora safetensors
+for lora in config.LORAS:
+    lora_path = utils.append_dir_if_startswith(lora, FILE_DIR, "models/")
+    logger.info(f"Loading lora {lora_path}...")
+
+    try:
+        imagen.load_lora(lora_path)
+    except OSError as e:
+        logger.error(f"Lora {lora_path} does not exist, skipping.")
 
 dpg.create_context()
 dpg.create_viewport(
@@ -551,7 +536,7 @@ with dpg.window(tag="window"):
         )
         dpg.add_combo(
             label="Scheduler",
-            items=SCHEDULERS,
+            items=config.SCHEDULERS,
             default_value=user_settings["scheduler"]
             if user_settings["scheduler"]
             else imagen.scheduler.__name__,

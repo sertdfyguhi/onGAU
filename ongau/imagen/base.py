@@ -2,6 +2,7 @@ from diffusers import SchedulerMixin, DiffusionPipeline
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
+from . import utils
 import os
 
 
@@ -26,9 +27,11 @@ class BaseImagen:
     def __init__(
         self, model: str, device: str, use_lpw_stable_diffusion: bool = False
     ) -> None:
+        """Base class for all imagen classes."""
         self._model = model
         self._device = device
         self._scheduler = None
+        self._loras_loaded = []
         self._embedding_models_loaded = []
         self._clip_skip_amount = 0
         self._karras_sigmas_used = False
@@ -93,6 +96,7 @@ class BaseImagen:
 
     @classmethod
     def from_class(cls, original):
+        """Create a new imagen object from another imagen object."""
         c = cls(
             original.model, original.device, original.lpw_stable_diffusion_used
         )  # initialize class
@@ -129,6 +133,7 @@ class BaseImagen:
         scheduler: SchedulerMixin = None,
         use_lpw_stable_diffusion: bool = False,
     ) -> None:
+        """Base function to set the model of the pipeline."""
         self._model = model
         self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
@@ -197,10 +202,14 @@ class BaseImagen:
         for model in self._embedding_models_loaded:
             self.load_embedding_model(model)
 
+        self._pipeline.to(self._device)
+
     def load_lpw_stable_diffusion(self):
+        """Load Long Prompt Weighting Stable Diffusion pipeline."""
         self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
 
     def load_embedding_model(self, embedding_model_path: str):
+        """Load a textual inversion model."""
         try:
             self._pipeline.load_textual_inversion(
                 embedding_model_path,
@@ -226,11 +235,22 @@ class BaseImagen:
 
         self._clip_skip_amount = amount
 
+    def load_lora(self, lora_path: str, alpha: float = 0.75):
+        """Load a .safetensors lora."""
+        self._pipeline = utils.load_lora(
+            self._pipeline.to("cpu"),  # convert to cpu because it fails idfk
+            lora_path,
+            self._device,
+            alpha,
+        )
+
     def set_device(self, device: str):
+        """Change device of pipeline."""
         self._device = device
         self._pipeline = self._pipeline.to(device)
 
     def set_scheduler(self, scheduler: SchedulerMixin, use_karras_sigmas: bool = False):
+        """Change scheduler of pipeline."""
         if (
             use_karras_sigmas
         ):  # TODO: Set scheduler internal variable instead of reinstating when using same scheduler
@@ -246,6 +266,7 @@ class BaseImagen:
         self._karras_sigmas_used = use_karras_sigmas
 
     def save_weights(self, dir_path: str):
+        """Save model weights in diffusers format in directory path."""
         orig_clip_skip = self._clip_skip_amount
         self.set_clip_skip_amount(0)
 
@@ -254,11 +275,13 @@ class BaseImagen:
         self.set_clip_skip_amount(orig_clip_skip)
 
     def enable_safety_checker(self):
+        """Enable the safety checker."""
         if hasattr(self._pipeline, "safety_checker"):
             self._safety_checker_enabled = True
             self._pipeline.safety_checker = self._orig_safety_checker
 
     def disable_safety_checker(self):
+        """Disable the safety checker."""
         if hasattr(self._pipeline, "safety_checker") and self._pipeline.safety_checker:
             self._safety_checker_enabled = False
             self._pipeline.safety_checker = lambda images, clip_input: (images, False)

@@ -42,7 +42,7 @@ python3 onGAU/main.py
 - [ ] Add CPU model offloading
 - [x] Average step time
 - [x] Load .ckpt in app
-- [ ] Load .safetensors lora in app
+- [x] Load .safetensors lora in app
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled

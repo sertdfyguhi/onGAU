@@ -3,8 +3,9 @@ SAVE_FILE_PATTERN = (
     "saves/saved%s.png"  # how the program saves the generated images (relative to CWD)
 )
 DEFAULT_MODEL = "models/anything-v3.0"  # the default model to use (either a local path (in diffusers format)) or a huggingface model (for example: stabilityai/stable-diffusion))
-DEVICE = "mps"  # device to use. gpu should use "cuda" and cpu should use "cpu". more info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
+DEVICE = "cuda"  # device to use. gpu should use "cuda" and cpu should use "cpu". more info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
 EMBEDDING_MODELS = []  # an array of paths to embedding models to use
+LORAS = []  # an array of paths to lora .safetensors files to use
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
 
 
@@ -20,6 +21,33 @@ DEFAULT_HEIGHT = 512  # image height
 DEFAULT_PIPELINE = "Text2Img"
 # use long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.15.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
 DEFAULT_LPWSD_PIPELINE = True
+
+# the list of schdulers to use
+SCHEDULERS = [
+    "DDIMInverseScheduler",
+    "DDIMScheduler",
+    "DDPMScheduler",
+    "DEISMultistepScheduler",
+    "DPMSolverMultistepScheduler",
+    "DPMSolverMultistepScheduler Karras",
+    "DPMSolverSinglestepScheduler",
+    "EulerAncestralDiscreteScheduler",
+    "EulerAncestralDiscreteScheduler Karras",
+    "EulerDiscreteScheduler",
+    "HeunDiscreteScheduler",
+    "IPNDMScheduler",
+    "KDPM2AncestralDiscreteScheduler",
+    "KDPM2DiscreteScheduler",
+    "KarrasVeScheduler",
+    "LMSDiscreteScheduler",
+    "PNDMScheduler",
+    "RePaintScheduler",
+    "ScoreSdeVeScheduler",
+    "ScoreSdeVpScheduler",
+    "UnCLIPScheduler",
+    "UniPCMultistepScheduler",
+    "VQDiffusionScheduler",
+]
 
 # UI config
 FONT = "DankMono-Regular.otf"  # place custom fonts in fonts directory
