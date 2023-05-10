@@ -23,7 +23,7 @@ DEFAULT_LPWSD_PIPELINE = True
 
 # UI config
 FONT = "DankMono-Regular.otf"  # place custom fonts in fonts directory
-FONT_SIZE = 17
+FONT_SIZE = 15
 ITEM_WIDTH = 280
 WINDOW_TITLE = "onGAU"
 WINDOW_SIZE = (1280, 720)  # width, height

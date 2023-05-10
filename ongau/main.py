@@ -369,7 +369,7 @@ def update_pipeline(_, pipeline):
 
     match pipeline:
         case "Text2Img":
-            imagen = Text2Img.from_class(imaen)
+            imagen = Text2Img.from_class(imagen)
             dpg.hide_item("base_image_path")
         case "SDImg2Img":
             imagen = SDImg2Img.from_class(imagen)
