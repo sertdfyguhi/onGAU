@@ -10,6 +10,7 @@ from torch import cuda
 import imagesize
 import pyperclip
 import utils
+import copy
 import time
 import os
 
@@ -260,8 +261,8 @@ def generate_image_callback():
             logger.error(str(e))
 
     dpg.show_item("progress_bar")
-    dpg.hide_item("save_button")
     dpg.hide_item("info_group")
+    dpg.hide_item("output_button_group")
     dpg.hide_item("output_image_group")
     dpg.hide_item("status_text")
 
@@ -308,7 +309,7 @@ Total time: {total_time:.1f}s"""
 
     dpg.hide_item("progress_bar")
     dpg.show_item("info_group")
-    dpg.show_item("save_button")
+    dpg.show_item("output_button_group")
     dpg.show_item("output_image_group")
 
 
@@ -368,11 +369,12 @@ def update_pipeline(_, pipeline):
 
     match pipeline:
         case "Text2Img":
-            imagen = Text2Img.from_class(imagen)
+            imagen = Text2Img.from_class(imaen)
             dpg.hide_item("base_image_path")
         case "SDImg2Img":
             imagen = SDImg2Img.from_class(imagen)
             dpg.show_item("base_image_path")
+            base_image_path_callback()
 
     dpg.hide_item("status_text")
     update_window_title()
@@ -413,17 +415,34 @@ def lpwsd_callback(_, value):
             "Compel prompt weighting cannot be used when using LPWSD pipeline.",
             logger.error,
         )
+        dpg.set_value("lpwsd_pipeline", False)
         return
     elif imagen.model.endswith((".ckpt", ".safetensors")):
         status(
             "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used.",
             logger.error,
         )
+        dpg.set_value("lpwsd_pipeline", False)
         return
 
     status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
     imagen.set_model(imagen.model, value)
     dpg.hide_item("status_text")
+
+
+def use_in_img2img():
+    global file_number
+
+    file_path = config.SAVE_FILE_PATTERN % file_number
+    file_number += 1
+
+    utils.save_image(texture_manager.current()[1], file_path)
+
+    dpg.set_value("base_image_path", file_path)
+
+    if type(imagen) != SDImg2Img:
+        dpg.set_value("pipeline", "Img2Img")
+        update_pipeline(None, "SDImg2Img")
 
 
 # register font
@@ -592,7 +611,10 @@ with dpg.window(tag="window"):
         overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
     )
 
-    dpg.add_button(label="Save Image", tag="save_button", show=False)
+    # change tag name to smth better
+    with dpg.group(tag="output_button_group", show=False):
+        dpg.add_button(label="Save Image", tag="save_button")
+        dpg.add_button(label="Use in Img2Img", callback=use_in_img2img)
 
     with dpg.group(horizontal=True, tag="info_group", show=False):
         dpg.add_text(tag="info_text")
