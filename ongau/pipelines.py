@@ -1,8 +1,9 @@
 from imagen import SDImg2Img, Img2ImgGeneratedImage, Text2Img, GeneratedImage
-from PIL import UnidentifiedImageError, Image
-import dearpygui.dearpygui as dpg
-from typing import Callable
 import logger
+
+from PIL import UnidentifiedImageError, Image
+from typing import Callable
+import dearpygui.dearpygui as dpg
 import time
 import re
 import os

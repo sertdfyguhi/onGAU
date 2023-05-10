@@ -1,8 +1,9 @@
+from . import utils
+
 from diffusers import SchedulerMixin, DiffusionPipeline
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
-from . import utils
 import os
 
 

@@ -1,9 +1,10 @@
-from diffusers import StableDiffusionImg2ImgPipeline
 from .base import BaseImagen, GeneratedImage
+from . import utils
+
+from diffusers import StableDiffusionImg2ImgPipeline
 from dataclasses import dataclass
 from typing import Callable
 from PIL.Image import Image
-from . import utils
 
 
 @dataclass(frozen=True)

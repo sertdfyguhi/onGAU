@@ -4,9 +4,9 @@ from user_settings import UserSettings
 import logger, config, pipelines
 
 from huggingface_hub.utils import HFValidationError
-import dearpygui.dearpygui as dpg
 from diffusers import schedulers
 from torch import cuda
+import dearpygui.dearpygui as dpg
 import imagesize
 import pyperclip
 import utils
@@ -14,14 +14,13 @@ import time
 import os
 
 # Constants
-FILE_DIR = os.path.dirname(__file__)
+FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 
 # load user settings
 settings_manager = UserSettings(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_user_settings()
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
-_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
 if user_settings["lpwsd_pipeline"] == "True" and model_path.endswith(
     (".ckpt", ".safetensors")
@@ -35,9 +34,10 @@ if user_settings["lpwsd_pipeline"] == "True" and model_path.endswith(
 
 logger.info(f"Loading {model_path}...")
 use_lpwsd = user_settings["lpwsd_pipeline"] == "True"
+imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
 try:
-    imagen = _class(model_path, config.DEVICE, use_lpwsd)
+    imagen = imagen_class(model_path, config.DEVICE, use_lpwsd)
 except HFValidationError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
@@ -47,12 +47,11 @@ except HFValidationError:
 
     logger.info(f"Loading {model_path}...")
 
-    # create class
-    imagen = _class(model_path, config.DEVICE, use_lpwsd)
+    imagen = imagen_class(model_path, config.DEVICE, use_lpwsd)
 
 if scheduler := user_settings["scheduler"]:
-    # check if scheduler is using karras sigmas
-    if scheduler[-6:] == "Karras":
+    # Check if scheduler is using karras sigmas by checking if it endswith "Karras".
+    if scheduler.endswith("Karras"):
         imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
     else:
         imagen.set_scheduler(getattr(schedulers, scheduler))
@@ -76,7 +75,7 @@ for op in [
     if op and user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
 
-# load embedding models
+# Load embedding models.
 for model in config.EMBEDDING_MODELS:
     emb_model_path = utils.append_dir_if_startswith(model, FILE_DIR, "models/")
     logger.info(f"Loading embedding model {emb_model_path}...")
@@ -86,7 +85,7 @@ for model in config.EMBEDDING_MODELS:
     except OSError:
         logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
 
-# load lora safetensors
+# Load loras.
 for lora in config.LORAS:
     lora_path = utils.append_dir_if_startswith(lora[0], FILE_DIR, "models/")
     logger.info(f"Loading lora {lora_path}...")
@@ -108,12 +107,14 @@ base_image_aspect_ratio = None
 
 
 def update_window_title(info: str = None):
+    """Updates the window title with the specified information."""
     dpg.set_viewport_title(
         f"{config.WINDOW_TITLE} - {info}" if info else config.WINDOW_TITLE
     )
 
 
 def status(msg: str, log_func=logger.info):
+    """Edits the status text and logs the message using the specified logging function."""
     if log_func:
         log_func(msg)
 
@@ -121,7 +122,8 @@ def status(msg: str, log_func=logger.info):
     dpg.show_item("status_text")
 
 
-def save():
+def save_image_callback():
+    """Callback to save the currently shown image to disk."""
     global file_number
 
     file_path = config.SAVE_FILE_PATTERN % file_number
@@ -137,7 +139,8 @@ def save():
     file_number += 1
 
 
-def save_model():
+def save_model_callback():
+    """Callback to save model weights to disk."""
     dpg.set_item_label("save_model", "Saving model..")
     update_window_title("Saving model...")
 
@@ -151,13 +154,16 @@ def save_model():
     update_window_title()
 
 
-def update_image(texture_tag: str | int, image: GeneratedImage):
+def update_image_widget(texture_tag: str | int, image: GeneratedImage):
+    """Updates output image widget with the specified texture."""
+
+    # Resizes the image size to fit within window size.
     img_w, img_h = utils.resize_size_to_fit(
         (image.width, image.height),
         (
-            dpg.get_viewport_width() - 460,
-            dpg.get_viewport_height() - 42,
-        ),  # subtraction to account for margin
+            dpg.get_viewport_width() - 460,  # subtration to account for position change
+            dpg.get_viewport_height() - 42,  # subtraction to account for margin
+        ),
     )
 
     if dpg.does_item_exist("output_image_item"):
@@ -177,13 +183,9 @@ def update_image(texture_tag: str | int, image: GeneratedImage):
             height=img_h,
         )
 
-    dpg.configure_item(
-        "save_button",
-        callback=save,
-    )
 
-
-def progress_callback(step: int, step_count: int, elapsed_time: float):
+def gen_progress_callback(step: int, step_count: int, elapsed_time: float):
+    """Callback to update UI to show generation progress."""
     progress = step / step_count
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
 
@@ -200,6 +202,7 @@ def progress_callback(step: int, step_count: int, elapsed_time: float):
 
 
 def generate_image_callback():
+    """Callback to generate a new image."""
     texture_manager.clear()  # save memory
 
     model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
@@ -209,6 +212,7 @@ def generate_image_callback():
 
         use_lpwsd = imagen.lpw_stable_diffusion_used
 
+        # Checks if model is a checkpoint or safetensors file.
         if use_lpwsd and model.endswith((".ckpt", ".safetensors")):
             logger.warn(
                 "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
@@ -228,7 +232,7 @@ def generate_image_callback():
 
     scheduler = dpg.get_value("scheduler")
 
-    # check if scheduler is different from already used scheduler
+    # Check if scheduler is different from currently used scheduler.
     if scheduler != imagen.scheduler.__name__ + (
         " Karras" if imagen.karras_sigmas_used else ""
     ):
@@ -256,14 +260,12 @@ def generate_image_callback():
     start_time = time.time()
 
     if type(imagen) == Text2Img:
-        images = pipelines.text2img(imagen, progress_callback)
+        images = pipelines.text2img(imagen, gen_progress_callback)
     else:
-        images = pipelines.img2img(imagen, progress_callback)
+        images = pipelines.img2img(imagen, gen_progress_callback)
 
     if not images:
         return
-
-    texture_manager.prepare(images)
 
     plural = "s" if len(images) > 1 else ""
     total_time = time.time() - start_time
@@ -282,16 +284,21 @@ Average step time: {average_step_time:.1f}s
 Total time: {total_time:.1f}s"""
     )
 
-    update_window_title()
-    update_image(*texture_manager.current())
-
-    dpg.set_value("progress_bar", 0.0)
-    dpg.configure_item("progress_bar", overlay="0%")
-    dpg.set_value("output_image_index", texture_manager.to_counter_string())
     dpg.set_value(
         "info_text",
         f"Current Image Seed: {images[0].seed}\nAverage step time: {average_step_time:.1f}s\nTotal time: {total_time:.1f}s",
     )
+
+    # Prepare the images to be shown in UI.
+    texture_manager.prepare(images)
+
+    update_window_title()
+    update_image_widget(*texture_manager.current())
+
+    # Reset values.
+    dpg.set_value("progress_bar", 0.0)
+    dpg.configure_item("progress_bar", overlay="0%")
+    dpg.set_value("output_image_index", texture_manager.to_counter_string())
 
     dpg.hide_item("progress_bar")
     dpg.show_item("info_group")
@@ -299,13 +306,14 @@ Total time: {total_time:.1f}s"""
     dpg.show_item("output_image_group")
 
 
-def change_image(tag):
+def switch_image_callback(tag: str):
+    """Callback to switch through generated output images."""
     global image_index
 
     current = texture_manager.next() if tag == "next" else texture_manager.previous()
 
     if current:
-        update_image(*current)
+        update_image_widget(*current)
         dpg.set_value("output_image_index", texture_manager.to_counter_string())
         dpg.set_value(
             "info_text",
@@ -313,7 +321,11 @@ def change_image(tag):
         )
 
 
-def checkbox_callback(tag, value):
+def checkbox_callback(tag: str, value: bool):
+    """
+    Callback for most checkbox settings.
+    Enables and disables settings based on the tag.
+    """
     func_name = ("enable_" if value else "disable_") + tag
 
     try:
@@ -323,14 +335,15 @@ def checkbox_callback(tag, value):
         dpg.set_value(tag, not value)
 
 
-def toggle_xformers(tag, value):
+def toggle_xformers_callback(_, value: bool):
+    """Callback to toggle xformers."""
     if not cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
         status("Xformers is only available for GPUs.", logger.error)
         return
 
     try:
-        checkbox_callback(tag, value)
+        checkbox_callback("xformers_memory_attention", value)
     except ModuleNotFoundError:
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
@@ -340,14 +353,16 @@ def toggle_xformers(tag, value):
         )
 
 
-def toggle_advanced_config():
+def toggle_advanced_config_callback():
+    """Callback to toggle visibility of advanced configurations."""
     if dpg.is_item_shown("advanced_config"):
         dpg.hide_item("advanced_config")
     else:
         dpg.show_item("advanced_config")
 
 
-def update_pipeline(_, pipeline):
+def change_pipeline_callback(_, pipeline: str):
+    """Callback to change the pipeline used."""
     global imagen
 
     status(f"Loading {pipeline}...")
@@ -368,8 +383,12 @@ def update_pipeline(_, pipeline):
     update_window_title()
 
 
-def image_size_calc(tag, value):
-    if base_image_aspect_ratio and type(imagen) == SDImg2Img:
+def image_size_calc_callback(tag: str, value: str):
+    """
+    Callback to change the generated image width and height based on the aspect ratio of the base image.
+    Only applies in img2img.
+    """
+    if base_image_aspect_ratio:
         if tag == "width":
             dpg.set_value("height", value / base_image_aspect_ratio)
         else:
@@ -377,6 +396,10 @@ def image_size_calc(tag, value):
 
 
 def base_image_path_callback():
+    """
+    Callback to check if base image exists and assign generated image width and height to the size of the base image.
+    Only applies in img2img.
+    """
     global base_image_aspect_ratio
 
     base_image_path = dpg.get_value("base_image_path")
@@ -394,10 +417,11 @@ def base_image_path_callback():
     dpg.set_value("width", image_size[0])
     dpg.set_value("height", image_size[1])
 
-    dpg.hide_item("status_text")  # to remove any errors shown before
+    dpg.hide_item("status_text")  # remove any errors shown before
 
 
 def lpwsd_callback(_, value):
+    """Callback to toggle Long Prompt Weighting Stable Diffusion pipeline."""
     if imagen.compel_weighting_enabled:
         status(
             "Compel prompt weighting cannot be used when using LPWSD pipeline.",
@@ -415,10 +439,11 @@ def lpwsd_callback(_, value):
 
     status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
     imagen.set_model(imagen.model, value)
-    dpg.hide_item("status_text")
+    dpg.hide_item("status_text")  # remove any errors shown before
 
 
-def use_in_img2img():
+def use_in_img2img_callback():
+    """Callback to send current generated image to img2img pipeline."""
     global file_number
 
     dpg.set_value("use_in_img2img", "Loading...")
@@ -432,12 +457,12 @@ def use_in_img2img():
 
     if type(imagen) != SDImg2Img:
         dpg.set_value("pipeline", "SDImg2Img")
-        update_pipeline(None, "SDImg2Img")
+        change_pipeline_callback(None, "SDImg2Img")
 
     dpg.set_value("use_in_img2img", "Use In Img2Img")
 
 
-# register font
+# register UI font
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
 
@@ -465,7 +490,7 @@ with dpg.window(tag="window"):
         default_value=int(user_settings["width"]),
         min_value=1,
         width=config.ITEM_WIDTH,
-        callback=image_size_calc,
+        callback=image_size_calc_callback,
         tag="width",
     )
     dpg.add_input_int(
@@ -473,7 +498,7 @@ with dpg.window(tag="window"):
         default_value=int(user_settings["height"]),
         min_value=1,
         width=config.ITEM_WIDTH,
-        callback=image_size_calc,
+        callback=image_size_calc_callback,
         tag="height",
     )
     # dpg.add_input_float(
@@ -530,7 +555,9 @@ with dpg.window(tag="window"):
         show=user_settings["pipeline"] == "SDImg2Img",
     )
 
-    dpg.add_button(label="Advanced Configuration", callback=toggle_advanced_config)
+    dpg.add_button(
+        label="Advanced Configuration", callback=toggle_advanced_config_callback
+    )
 
     with dpg.group(tag="advanced_config", indent=7, show=False):
         dpg.add_combo(
@@ -538,7 +565,7 @@ with dpg.window(tag="window"):
             items=["Text2Img", "SDImg2Img"],
             default_value=imagen.__class__.__name__,
             width=config.ITEM_WIDTH,
-            callback=update_pipeline,
+            callback=change_pipeline_callback,
             tag="pipeline",
         )
         dpg.add_combo(
@@ -578,7 +605,7 @@ with dpg.window(tag="window"):
             label="Enable xFormers Memory Efficient Attention",
             tag="xformers_memory_attention",
             default_value=imagen.xformers_memory_attention_enabled,
-            callback=toggle_xformers,
+            callback=toggle_xformers_callback,
         )
         dpg.add_checkbox(
             label="Enable Compel Prompt Weighting",
@@ -595,7 +622,7 @@ with dpg.window(tag="window"):
         dpg.add_button(
             label="Save model weights",
             tag="save_model",
-            callback=save_model,
+            callback=save_model_callback,
         )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)
@@ -605,9 +632,13 @@ with dpg.window(tag="window"):
 
     # change tag name to smth better
     with dpg.group(tag="output_button_group", show=False):
-        dpg.add_button(label="Save Image", tag="save_button")
         dpg.add_button(
-            label="Use In Img2Img", tag="use_in_img2img", callback=use_in_img2img
+            label="Save Image", tag="save_button", callback=save_image_callback
+        )
+        dpg.add_button(
+            label="Use In Img2Img",
+            tag="use_in_img2img",
+            callback=use_in_img2img_callback,
         )
 
     with dpg.group(horizontal=True, tag="info_group", show=False):
@@ -621,8 +652,8 @@ with dpg.window(tag="window"):
 
     with dpg.group(pos=(460, 7), show=False, tag="output_image_group"):
         with dpg.group(horizontal=True, tag="output_image_selection"):
-            dpg.add_button(label="<", tag="previous", callback=change_image)
-            dpg.add_button(label=">", tag="next", callback=change_image)
+            dpg.add_button(label="<", tag="previous", callback=switch_image_callback)
+            dpg.add_button(label=">", tag="next", callback=switch_image_callback)
             dpg.add_text(tag="output_image_index")
 
     dpg.bind_font(default_font)

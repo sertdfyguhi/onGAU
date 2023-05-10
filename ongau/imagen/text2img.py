@@ -1,7 +1,8 @@
-from diffusers import StableDiffusionPipeline
 from .base import BaseImagen, GeneratedImage
-from typing import Callable
 from . import utils
+
+from diffusers import StableDiffusionPipeline
+from typing import Callable
 
 
 # stable diffusion model
