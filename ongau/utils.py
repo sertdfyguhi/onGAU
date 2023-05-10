@@ -37,26 +37,20 @@ def resize_size_to_fit(
     image_size: tuple[int, int] | list[int, int],
     window_size: tuple[int, int] | list[int, int],
 ):
-    """
-    Iterative function to resize a specified image size to fit into a specified window size.
-    """
+    """Resizes an image size to fit within window."""
+    img_w, img_h = image_size
+    win_w, win_h = window_size
 
-    result_image_size = image_size
+    aspect_ratio = img_w / img_h
 
-    while (is_width := result_image_size[0] > window_size[0]) or (
-        result_image_size[1] > window_size[1]
-    ):
-        aspect_ratio = result_image_size[0] / result_image_size[1]
+    width = min(img_w, win_w)
+    height = width // aspect_ratio
 
-        if is_width:
-            result_image_size = [
-                window_size[0],
-                round(window_size[0] / aspect_ratio),
-            ]
-        else:
-            result_image_size = [round(window_size[1] * aspect_ratio), window_size[1]]
+    if height > win_h:
+        height = win_h
+        width = int(height * aspect_ratio)
 
-    return result_image_size
+    return width, height
 
 
 def append_dir_if_startswith(path: str, dir: str, startswith: str):
@@ -81,6 +75,24 @@ def save_image(image_info: GeneratedImage, file_path: str):
     )
     metadata.add_text("seed", str(image_info.seed))
     metadata.add_text("clip_skip", str(image_info.clip_skip))
+    metadata.add_text(
+        "embeddings",
+        ", ".join(
+            [embedding.replace(",", "\\,") for embedding in image_info.embeddings]
+        ),
+    )
+
+    BACKSLASH = chr(92)
+    metadata.add_text(
+        "loras",
+        ";".join(
+            [
+                f'{lora[0].replace(";", BACKSLASH + ";").replace(",", BACKSLASH + ",")}, {lora[1]}'  # sanitize
+                for lora in image_info.loras
+            ]
+        ),
+    )
+
     if image_info.pipeline == StableDiffusionImg2ImgPipeline:
         metadata.add_text("base_image_path", image_info.base_image_path)
 

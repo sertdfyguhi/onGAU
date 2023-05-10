@@ -10,7 +10,6 @@ from torch import cuda
 import imagesize
 import pyperclip
 import utils
-import copy
 import time
 import os
 
@@ -89,11 +88,11 @@ for model in config.EMBEDDING_MODELS:
 
 # load lora safetensors
 for lora in config.LORAS:
-    lora_path = utils.append_dir_if_startswith(lora, FILE_DIR, "models/")
+    lora_path = utils.append_dir_if_startswith(lora[0], FILE_DIR, "models/")
     logger.info(f"Loading lora {lora_path}...")
 
     try:
-        imagen.load_lora(lora_path)
+        imagen.load_lora(lora_path, lora[1])
     except OSError as e:
         logger.error(f"Lora {lora_path} does not exist, skipping.")
 
@@ -153,10 +152,10 @@ def save_model():
 
 
 def update_image(texture_tag: str | int, image: GeneratedImage):
-    image_widget_size = utils.resize_size_to_fit(
+    img_w, img_h = utils.resize_size_to_fit(
         (image.width, image.height),
         (
-            dpg.get_viewport_width(),
+            dpg.get_viewport_width() - 460,
             dpg.get_viewport_height() - 42,
         ),  # subtraction to account for margin
     )
@@ -165,17 +164,17 @@ def update_image(texture_tag: str | int, image: GeneratedImage):
         dpg.configure_item(
             "output_image_item",
             texture_tag=texture_manager.current()[0],
-            width=image_widget_size[0],
-            height=image_widget_size[1],
+            width=img_w,
+            height=img_h,
         )
     else:
         dpg.add_image(
             texture_tag,
-            width=image_widget_size[0],
-            height=image_widget_size[1],
             tag="output_image_item",
             before="output_image_selection",
             parent="output_image_group",
+            width=img_w,
+            height=img_h,
         )
 
     dpg.configure_item(
@@ -218,7 +217,7 @@ def generate_image_callback():
 
         try:
             imagen.set_model(model, use_lpwsd)
-        except HFValidationError as e:
+        except HFValidationError:
             logger.error(f"{model} does not exist.")
             status(f"{model} does not exist.", None)
             update_window_title()
@@ -228,14 +227,17 @@ def generate_image_callback():
         update_window_title()
 
     scheduler = dpg.get_value("scheduler")
-    if (
-        scheduler != imagen.scheduler.__name__ + " Karras"
-        if (karras := scheduler.endswith("Karras"))
-        else ""
+
+    # check if scheduler is different from already used scheduler
+    if scheduler != imagen.scheduler.__name__ + (
+        " Karras" if imagen.karras_sigmas_used else ""
     ):
         logger.info(f"Loading scheduler {scheduler}...")
+
+        use_karras = scheduler.endswith("Karras")
         imagen.set_scheduler(
-            getattr(schedulers, scheduler[:-7] if karras else scheduler), karras
+            getattr(schedulers, scheduler[:-7] if use_karras else scheduler),
+            use_karras,
         )
 
     clip_skip = dpg.get_value("clip_skip")
@@ -252,11 +254,10 @@ def generate_image_callback():
     dpg.hide_item("status_text")
 
     start_time = time.time()
-    imagen_type = type(imagen)
 
-    if imagen_type == Text2Img:
+    if type(imagen) == Text2Img:
         images = pipelines.text2img(imagen, progress_callback)
-    elif imagen_type == SDImg2Img:
+    else:
         images = pipelines.img2img(imagen, progress_callback)
 
     if not images:
@@ -352,6 +353,8 @@ def update_pipeline(_, pipeline):
     status(f"Loading {pipeline}...")
     update_window_title(f"Loading {pipeline}...")
 
+    del imagen._pipeline
+
     match pipeline:
         case "Text2Img":
             imagen = Text2Img.from_class(imagen)
@@ -418,6 +421,8 @@ def lpwsd_callback(_, value):
 def use_in_img2img():
     global file_number
 
+    dpg.set_value("use_in_img2img", "Loading...")
+
     file_path = config.SAVE_FILE_PATTERN % file_number
     file_number += 1
 
@@ -426,8 +431,10 @@ def use_in_img2img():
     dpg.set_value("base_image_path", file_path)
 
     if type(imagen) != SDImg2Img:
-        dpg.set_value("pipeline", "Img2Img")
+        dpg.set_value("pipeline", "SDImg2Img")
         update_pipeline(None, "SDImg2Img")
+
+    dpg.set_value("use_in_img2img", "Use In Img2Img")
 
 
 # register font
@@ -599,7 +606,9 @@ with dpg.window(tag="window"):
     # change tag name to smth better
     with dpg.group(tag="output_button_group", show=False):
         dpg.add_button(label="Save Image", tag="save_button")
-        dpg.add_button(label="Use in Img2Img", callback=use_in_img2img)
+        dpg.add_button(
+            label="Use In Img2Img", tag="use_in_img2img", callback=use_in_img2img
+        )
 
     with dpg.group(horizontal=True, tag="info_group", show=False):
         dpg.add_text(tag="info_text")

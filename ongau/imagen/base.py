@@ -19,6 +19,8 @@ class GeneratedImage:
     scheduler: SchedulerMixin
     karras_sigmas_used: bool
     clip_skip: int
+    loras: list[str]
+    embeddings: list[str]
     width: int
     height: int
 
@@ -85,6 +87,10 @@ class BaseImagen:
     @property
     def embedding_models_loaded(self):
         return self._embedding_models_loaded
+
+    @property
+    def loras_loaded(self):
+        return self._loras_loaded
 
     @property
     def lpw_stable_diffusion_used(self):
@@ -235,14 +241,15 @@ class BaseImagen:
 
         self._clip_skip_amount = amount
 
-    def load_lora(self, lora_path: str, alpha: float = 0.75):
+    def load_lora(self, lora_path: str, weight: float = 0.75):
         """Load a .safetensors lora."""
         self._pipeline = utils.load_lora(
             self._pipeline.to("cpu"),  # convert to cpu because it fails idfk
             lora_path,
             self._device,
-            alpha,
+            weight,
         )
+        self._loras_loaded.append((lora_path, weight))
 
     def set_device(self, device: str):
         """Change device of pipeline."""

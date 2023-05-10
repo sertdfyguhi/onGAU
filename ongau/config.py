@@ -3,9 +3,11 @@ SAVE_FILE_PATTERN = (
     "saves/saved%s.png"  # how the program saves the generated images (relative to CWD)
 )
 DEFAULT_MODEL = "models/anything-v3.0"  # the default model to use (either a local path (in diffusers format)) or a huggingface model (for example: stabilityai/stable-diffusion))
-DEVICE = "cuda"  # device to use. gpu should use "cuda" and cpu should use "cpu". more info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
-EMBEDDING_MODELS = []  # an array of paths to embedding models to use
-LORAS = []  # an array of paths to lora .safetensors files to use
+DEVICE = "mps"  # device to use. gpu should use "cuda" and cpu should use "cpu". more info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
+# an array of paths to embedding models to use
+EMBEDDING_MODELS = []
+# an array of paths to lora .safetensors files to use. format: [(path, weight)]
+LORAS = []
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
 
 

@@ -28,7 +28,7 @@ def create_torch_generator(
     return generators, seeds
 
 
-# https://github.com/hugging face/diffusers/blob/main/scripts/convert_lora_safetensor_to_diffusers.py
+# https://github.com/huggingface/diffusers/blob/main/scripts/convert_lora_safetensor_to_diffusers.py
 def load_lora(
     pipeline,
     lora_path: str,

@@ -43,6 +43,7 @@ python3 onGAU/main.py
 - [x] Average step time
 - [x] Load .ckpt in app
 - [x] Load .safetensors lora in app
+- [ ] Change embedding models and loras in app
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
