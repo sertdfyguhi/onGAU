@@ -18,7 +18,7 @@ git clone https://github.com/sertdfyguhi/onGAU.git
 pip3 install -r requirements.txt
 ```
 
-3. set the model (from huggingface or locally in `onGAU/models` folder in diffusers format), device, and other configuration in `onGAU/config.py`
+3. set the model, device, and other configuration in `onGAU/config.py`
 
 4. run `onGAU/main.py`
 
@@ -45,6 +45,7 @@ python3 onGAU/main.py
 - [x] Load .safetensors lora in app
 - [ ] Change embedding models and loras in app
 - [ ] Add super resolution (ESRGAN/SwinIR) support
+- [ ] Create an install script to easily install UI
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled

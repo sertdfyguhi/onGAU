@@ -8,3 +8,4 @@ torch==2.0.0
 transformers==4.28.1
 accelerate==0.18.0
 compel==1.1.0
+safetensors==0.3.0
