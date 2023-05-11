@@ -18,7 +18,7 @@ class TextureManager:
         """
         self._texture_reg = texture_reg
         self._textures = []
-        self._images = None
+        self._images = []
         self._image_index = 0
 
     @property
@@ -44,7 +44,7 @@ class TextureManager:
 
     def next(self) -> tuple[str | int, GeneratedImage]:
         """Returns and moves to the next image and texture."""
-        if self._image_index == len(self._textures) - 1:
+        if self._textures == [] or self._image_index == len(self._textures) - 1:
             return
 
         self._image_index += 1

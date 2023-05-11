@@ -473,6 +473,15 @@ def use_in_img2img_callback():
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
 
+# Register key shortcuts.
+with dpg.handler_registry():
+    dpg.add_key_down_handler(
+        dpg.mvKey_Left, callback=lambda: switch_image_callback("previous")
+    )
+    dpg.add_key_down_handler(
+        dpg.mvKey_Right, callback=lambda: switch_image_callback("next")
+    )
+
 # Create dialog box for loading settings from an image file.
 # with dpg.window(tag="image_input_dialog", no_title_bar=True, modal=True):
 #     dpg.add_text("Image path.")
