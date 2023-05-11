@@ -1,4 +1,4 @@
-dearpygui==1.8.0
+dearpygui==1.9.1
 diffusers==0.16.1
 imagesize==1.4.1
 numpy==1.24.3

@@ -1,6 +1,7 @@
 from . import utils
 
 from diffusers import SchedulerMixin, DiffusionPipeline
+from huggingface_hub.utils import HFValidationError
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
@@ -131,6 +132,9 @@ class BaseImagen:
         for model in original.embedding_models_loaded:
             c.load_embedding_model(model)
 
+        for lora in original.loras_loaded:
+            c.load_lora(*lora)
+
         return c
 
     def _set_model(
@@ -142,7 +146,16 @@ class BaseImagen:
     ) -> None:
         """Base function to set the model of the pipeline."""
         self._model = model
-        self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
+
+        if use_lpw_stable_diffusion:
+            if self._compel_weighting_enabled:
+                raise RuntimeError(
+                    "Compel prompt weighting cannot be used when using LPWSD pipeline."
+                )
+            elif model.endswith((".ckpt", ".safetensors")):
+                raise ValueError(
+                    "LPWSD pipeline is not compatible with a .ckpt or .safetensors file."
+                )
 
         orig_scheduler = None
 
@@ -156,18 +169,22 @@ class BaseImagen:
             if hasattr(self, "_orig_safety_checker"):
                 del self._orig_safety_checker
 
-        self._pipeline = (
-            pipeline.from_ckpt
-            if model.endswith((".ckpt", ".safetensors"))
-            else pipeline.from_pretrained
-        )(
-            model,
-            custom_pipeline="lpw_stable_diffusion"
-            if use_lpw_stable_diffusion
-            else None,
-        ).to(
-            self._device
-        )
+        try:
+            self._pipeline = (
+                pipeline.from_ckpt
+                if model.endswith((".ckpt", ".safetensors"))
+                else pipeline.from_pretrained
+            )(
+                model,
+                custom_pipeline="lpw_stable_diffusion"
+                if use_lpw_stable_diffusion
+                else None,
+            )
+        except HFValidationError:
+            raise FileNotFoundError(f"{model} does not exist.")
+
+        self._pipeline = self._pipeline.to(self._device)
+        self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
         if scheduler:
             self.set_scheduler(scheduler)  # might implement karras sigmas to this
@@ -208,6 +225,9 @@ class BaseImagen:
 
         for model in self._embedding_models_loaded:
             self.load_embedding_model(model)
+
+        for lora in self._loras_loaded:
+            self.load_lora(*lora)
 
         self._pipeline.to(self._device)
 

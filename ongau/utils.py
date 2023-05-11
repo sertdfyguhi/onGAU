@@ -1,36 +1,21 @@
+from imagen import GeneratedImage
+
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL.PngImagePlugin import PngInfo
-from imagen import GeneratedImage
 import os
 
 
-# edited and modified from https://stackoverflow.com/questions/17984809/how-do-i-create-an-incrementing-filename-in-python
-def next_file_number(path_pattern: str):
-    """
-    Finds the next free file number in an sequentially named list of files
+def next_file_number(path_pattern: str, start_from: int = 1):
+    """Iteratively find the next file number using a path pattern."""
 
-    e.g. path_pattern = 'file-%s.txt':
+    i = start_from
 
-    1
-    2
-    3
+    while True:
+        path = path_pattern % i
+        if not os.path.exists(path):
+            return path
 
-    Runs in log(n) time where n is the number of existing files in sequence
-    """
-    i = 1
-
-    # First do an exponential search
-    while os.path.exists(path_pattern % i):
-        i = i * 2
-
-    # Result lies somewhere in the interval (i/2..i]
-    # We call this interval (a..b] and narrow it down until a + 1 = b
-    a, b = (i // 2, i)
-    while a + 1 < b:
-        c = (a + b) // 2  # interval midpoint
-        a, b = (c, b) if os.path.exists(path_pattern % c) else (a, c)
-
-    return b
+        i += 1
 
 
 def resize_size_to_fit(

@@ -3,7 +3,6 @@ from texture_manager import TextureManager
 from user_settings import UserSettings
 import logger, config, pipelines
 
-from huggingface_hub.utils import HFValidationError
 from diffusers import schedulers
 from torch import cuda
 import dearpygui.dearpygui as dpg
@@ -20,25 +19,22 @@ FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 # load user settings
 settings_manager = UserSettings(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_user_settings()
+
+use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
-
-if user_settings["lpwsd_pipeline"] == "True" and model_path.endswith(
-    (".ckpt", ".safetensors")
-):
-    logger.warn(
-        "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
-    )
-
-    user_settings["lpwsd_pipeline"] = "False"
+imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
 
 logger.info(f"Loading {model_path}...")
-use_lpwsd = user_settings["lpwsd_pipeline"] == "True"
-imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 
 try:
-    imagen = imagen_class(model_path, config.DEVICE, use_lpwsd)
-except HFValidationError:
+    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
+except ValueError as e:
+    logger.warn(str(e))
+
+    logger.info(f"Loading {model_path}...")
+    imagen = imagen_class(model_path, config.DEVICE, False)
+except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
     model_path = utils.append_dir_if_startswith(
@@ -46,8 +42,10 @@ except HFValidationError:
     )
 
     logger.info(f"Loading {model_path}...")
+    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
 
-    imagen = imagen_class(model_path, config.DEVICE, use_lpwsd)
+if user_settings["safety_checker"] == "True":
+    imagen.disable_safety_checker()
 
 if scheduler := user_settings["scheduler"]:
     # Check if scheduler is using karras sigmas by checking if it endswith "Karras".
@@ -56,28 +54,32 @@ if scheduler := user_settings["scheduler"]:
     else:
         imagen.set_scheduler(getattr(schedulers, scheduler))
 
-
-if user_settings["safety_checker"] in [None, "True"]:
-    imagen.disable_safety_checker()
-
 if user_settings["attention_slicing"] != None:
     if user_settings["attention_slicing"] == "True":
         imagen.enable_attention_slicing()
 else:
+    # Attention slicing boosts performance on Apple Silicon.
     if imagen.device == "mps":
-        imagen.enable_attention_slicing()  # attention slicing boosts performance on apple silicon
+        imagen.enable_attention_slicing()
+
+if user_settings["compel_weighting"] == "True":
+    if imagen.lpw_stable_diffusion_used:
+        logger.warn(
+            "Compel prompt weighting cannot be used when using LPWSD pipeline. Will not be enabled."
+        )
+    else:
+        imagen.enable_compel_weighting()
 
 for op in [
     "vae_slicing",
     "xformers_memory_attention",
-    "compel_weighting" if not use_lpwsd else None,
 ]:
-    if op and user_settings[op] == "True":
+    if user_settings[op] == "True":
         getattr(imagen, "enable_" + op)()
 
 # Load embedding models.
-for model in config.EMBEDDING_MODELS:
-    emb_model_path = utils.append_dir_if_startswith(model, FILE_DIR, "models/")
+for path in config.EMBEDDING_MODELS:
+    emb_model_path = utils.append_dir_if_startswith(path, FILE_DIR, "models/")
     logger.info(f"Loading embedding model {emb_model_path}...")
 
     try:
@@ -85,13 +87,13 @@ for model in config.EMBEDDING_MODELS:
     except OSError:
         logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
 
-# Load loras.
-for lora in config.LORAS:
-    lora_path = utils.append_dir_if_startswith(lora[0], FILE_DIR, "models/")
+# Load Loras.
+for path, weight in config.LORAS:
+    lora_path = utils.append_dir_if_startswith(path, FILE_DIR, "models/")
     logger.info(f"Loading lora {lora_path}...")
 
     try:
-        imagen.load_lora(lora_path, lora[1])
+        imagen.load_lora(lora_path, weight)
     except OSError as e:
         logger.error(f"Lora {lora_path} does not exist, skipping.")
 
@@ -101,7 +103,6 @@ dpg.create_viewport(
 )
 
 texture_manager = TextureManager(dpg.add_texture_registry())
-
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 base_image_aspect_ratio = None
 
@@ -126,6 +127,8 @@ def save_image_callback():
     """Callback to save the currently shown image to disk."""
     global file_number
 
+    # Check for already existing files to not overwrite files.
+    file_number = utils.next_file_number(config.SAVE_FILE_PATTERN, file_number)
     file_path = config.SAVE_FILE_PATTERN % file_number
 
     dpg.set_item_label("save_button", "Saving...")
@@ -136,6 +139,7 @@ def save_image_callback():
     dpg.set_item_label("save_button", "Save Image")
     update_window_title()
 
+    # Add one to account for used file.
     file_number += 1
 
 
@@ -144,9 +148,12 @@ def save_model_callback():
     dpg.set_item_label("save_model", "Saving model..")
     update_window_title("Saving model...")
 
+    # Generate the path for model weights.
     dir_path = os.path.join(
-        FILE_DIR, "models", os.path.basename(imagen.model).split(".")[0]
-    )  # get name of file
+        FILE_DIR,
+        "models",
+        os.path.basename(imagen.model).split(".")[0],  # Get name of model.
+    )
     os.mkdir(dir_path)
     imagen.save_weights(dir_path)
 
@@ -156,7 +163,6 @@ def save_model_callback():
 
 def update_image_widget(texture_tag: str | int, image: GeneratedImage):
     """Updates output image widget with the specified texture."""
-
     # Resizes the image size to fit within window size.
     img_w, img_h = utils.resize_size_to_fit(
         (image.width, image.height),
@@ -205,27 +211,23 @@ def generate_image_callback():
     """Callback to generate a new image."""
     texture_manager.clear()  # save memory
 
-    model = utils.append_dir_if_startswith(dpg.get_value("model"), FILE_DIR, "models/")
-    if model != imagen.model:
-        status(f"Loading {model}...")
-        update_window_title(f"Loading {model}...")
-
-        use_lpwsd = imagen.lpw_stable_diffusion_used
-
-        # Checks if model is a checkpoint or safetensors file.
-        if use_lpwsd and model.endswith((".ckpt", ".safetensors")):
-            logger.warn(
-                "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used."
-            )
-            use_lpwsd = False
+    # Get the path of the model.
+    model_path = utils.append_dir_if_startswith(
+        dpg.get_value("model"), FILE_DIR, "models/"
+    )
+    if model_path != imagen.model:
+        status(f"Loading {model_path}...")
+        update_window_title(f"Loading {model_path}...")
 
         try:
-            imagen.set_model(model, use_lpwsd)
-        except HFValidationError:
-            logger.error(f"{model} does not exist.")
-            status(f"{model} does not exist.", None)
+            imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
+        except RuntimeError as e:  # When compel prompt weighting is enabled.
+            status(str(e), logger.error)
             update_window_title()
             return
+        except ValueError as e:  # When LPWSD pipeline is enabled.
+            logger.warn(str(e))
+            imagen.set_model(model_path, False)
 
         dpg.hide_item("status_text")
         update_window_title()
@@ -267,6 +269,7 @@ def generate_image_callback():
     if not images:
         return
 
+    # Add an "s" if there are more than 1 image.
     plural = "s" if len(images) > 1 else ""
     total_time = time.time() - start_time
 
@@ -295,9 +298,11 @@ Total time: {total_time:.1f}s"""
     update_window_title()
     update_image_widget(*texture_manager.current())
 
-    # Reset values.
+    # Reset progress bar..
     dpg.set_value("progress_bar", 0.0)
     dpg.configure_item("progress_bar", overlay="0%")
+
+    # Show image index counter.
     dpg.set_value("output_image_index", texture_manager.to_counter_string())
 
     dpg.hide_item("progress_bar")
@@ -368,6 +373,7 @@ def change_pipeline_callback(_, pipeline: str):
     status(f"Loading {pipeline}...")
     update_window_title(f"Loading {pipeline}...")
 
+    # Clear old imagen object.
     del imagen._pipeline
 
     match pipeline:
@@ -420,25 +426,17 @@ def base_image_path_callback():
     dpg.hide_item("status_text")  # remove any errors shown before
 
 
-def lpwsd_callback(_, value):
+def lpwsd_callback(_, value: bool):
     """Callback to toggle Long Prompt Weighting Stable Diffusion pipeline."""
-    if imagen.compel_weighting_enabled:
-        status(
-            "Compel prompt weighting cannot be used when using LPWSD pipeline.",
-            logger.error,
-        )
-        dpg.set_value("lpwsd_pipeline", False)
-        return
-    elif imagen.model.endswith((".ckpt", ".safetensors")):
-        status(
-            "LPWSD pipeline is not compatible with a .ckpt or .safetensors file. Pipeline will not be used.",
-            logger.error,
-        )
+    status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
+
+    try:
+        imagen.set_model(imagen.model, value)
+    except (RuntimeError, ValueError) as e:
+        status(str(e), logger.error)
         dpg.set_value("lpwsd_pipeline", False)
         return
 
-    status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
-    imagen.set_model(imagen.model, value)
     dpg.hide_item("status_text")  # remove any errors shown before
 
 
@@ -448,13 +446,17 @@ def use_in_img2img_callback():
 
     dpg.set_value("use_in_img2img", "Loading...")
 
+    file_number = utils.next_file_number(config.SAVE_FILE_PATTERN, file_number)
     file_path = config.SAVE_FILE_PATTERN % file_number
+
+    # Add one to account for used file.
     file_number += 1
 
     utils.save_image(texture_manager.current()[1], file_path)
 
     dpg.set_value("base_image_path", file_path)
 
+    # Change pipeline if not in img2img.
     if type(imagen) != SDImg2Img:
         dpg.set_value("pipeline", "SDImg2Img")
         change_pipeline_callback(None, "SDImg2Img")
@@ -462,29 +464,63 @@ def use_in_img2img_callback():
     dpg.set_value("use_in_img2img", "Use In Img2Img")
 
 
-# register UI font
+# def load_settings_image_callback():
+#     """Callback to load generation settings from an inputted onGAU generated image file."""
+#     pass
+
+
+# Register UI font.
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
 
+# Create dialog box for loading settings from an image file.
+# with dpg.window(tag="image_input_dialog", no_title_bar=True, modal=True):
+#     dpg.add_text("Image path.")
+#     dpg.add_input_text(tag="image_input", width=config.ITEM_WIDTH)
+#     with dpg.group(horizontal=True):
+#         dpg.add_button(label="Cancel")
+#         dpg.add_button(label="Ok")
+
 with dpg.window(tag="window"):
+    # with dpg.menu_bar():
+    #     with dpg.menu(label="File"):
+    #         dpg.add_menu_item(
+    #             label="Load Settings from Image", callback=load_settings_image_callback
+    #         )
+
     dpg.add_input_text(
         label="Model",
         default_value=model_path,
         width=config.ITEM_WIDTH,
         tag="model",
     )
+    dpg.add_text(
+        "The path to a Stable Diffusion model to use. (huggingface model or local model)",
+        parent=dpg.add_tooltip("model"),
+    )
+
     dpg.add_input_text(
         label="Prompt",
         default_value=user_settings["prompt"],
         width=config.ITEM_WIDTH,
         tag="prompt",
     )
+    dpg.add_text(
+        "What you want to see in the image.",
+        parent=dpg.add_tooltip("prompt"),
+    )
+
     dpg.add_input_text(
         label="Negative Prompt",
         default_value=user_settings["negative_prompt"],
         width=config.ITEM_WIDTH,
         tag="negative_prompt",
     )
+    dpg.add_text(
+        "What you don't want to see in the image.",
+        parent=dpg.add_tooltip("negative_prompt"),
+    )
+
     dpg.add_input_int(
         label="Width",
         default_value=int(user_settings["width"]),
@@ -493,6 +529,11 @@ with dpg.window(tag="window"):
         callback=image_size_calc_callback,
         tag="width",
     )
+    dpg.add_text(
+        "The image width of the output image.",
+        parent=dpg.add_tooltip("width"),
+    )
+
     dpg.add_input_int(
         label="Height",
         default_value=int(user_settings["height"]),
@@ -501,6 +542,11 @@ with dpg.window(tag="window"):
         callback=image_size_calc_callback,
         tag="height",
     )
+    dpg.add_text(
+        "The image height of the output image.",
+        parent=dpg.add_tooltip("height"),
+    )
+
     # dpg.add_input_float(
     #     label="Strength",
     #     default_value=0.8,
@@ -519,6 +565,11 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="guidance_scale",
     )
+    dpg.add_text(
+        "How closely SD should follow your prompt.",
+        parent=dpg.add_tooltip("guidance_scale"),
+    )
+
     dpg.add_input_int(
         label="Step Count",
         default_value=int(user_settings["step_count"]),
@@ -527,6 +578,11 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="step_count",
     )
+    dpg.add_text(
+        "The number of iterations that SD runs over the image. Higher number usually gets you a better image.",
+        parent=dpg.add_tooltip("step_count"),
+    )
+
     dpg.add_input_int(
         label="Amount of Images",
         default_value=int(user_settings["image_amount"]),
@@ -535,11 +591,20 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="image_amount",
     )
+    dpg.add_text(
+        "The amount of images to generate.",
+        parent=dpg.add_tooltip("image_amount"),
+    )
+
     dpg.add_input_text(
         label="Seed",
         default_value=user_settings["seed"],
         width=config.ITEM_WIDTH,
         tag="seed",
+    )
+    dpg.add_text(
+        "The number to initialize the generation. Leaving it empty chooses it randomly.",
+        parent=dpg.add_tooltip("seed"),
     )
 
     # file dialog to be used
@@ -553,6 +618,10 @@ with dpg.window(tag="window"):
         tag="base_image_path",
         callback=base_image_path_callback,
         show=user_settings["pipeline"] == "SDImg2Img",
+    )
+    dpg.add_text(
+        "The path of the starting image to use in img2img.",
+        parent=dpg.add_tooltip("base_image_path"),
     )
 
     dpg.add_button(
@@ -568,6 +637,11 @@ with dpg.window(tag="window"):
             callback=change_pipeline_callback,
             tag="pipeline",
         )
+        dpg.add_text(
+            "The pipeline to use.",
+            parent=dpg.add_tooltip("pipeline"),
+        )
+
         dpg.add_combo(
             label="Scheduler",
             items=config.SCHEDULERS,
@@ -577,48 +651,84 @@ with dpg.window(tag="window"):
             width=config.ITEM_WIDTH,
             tag="scheduler",
         )
+        dpg.add_text(
+            "The sampling method to use.",
+            parent=dpg.add_tooltip("scheduler"),
+        )
+
         dpg.add_input_int(
             label="Clip Skip",
             default_value=int(user_settings["clip_skip"]),
             width=config.ITEM_WIDTH,
             tag="clip_skip",
         )
+        dpg.add_text(
+            "The amount CLIP layers to skip.",
+            parent=dpg.add_tooltip("clip_skip"),
+        )
+
         dpg.add_checkbox(
             label="Disable Safety Checker",
             tag="safety_checker",
             default_value=not imagen.safety_checker_enabled,
             callback=lambda tag, value: checkbox_callback(tag, not value),
         )
+        dpg.add_text(
+            "Check for NSFW image.",
+            parent=dpg.add_tooltip("safety_checker"),
+        )
+
         dpg.add_checkbox(
             label="Enable Attention Slicing",
             tag="attention_slicing",
             default_value=imagen.attention_slicing_enabled,
             callback=checkbox_callback,
         )
+        dpg.add_text(
+            "Slices the computation into multiple steps. Increases performance on MPS.",
+            parent=dpg.add_tooltip("attention_slicing"),
+        )
+
         dpg.add_checkbox(
             label="Enable Vae Slicing",
             tag="vae_slicing",
             default_value=imagen.vae_slicing_enabled,
             callback=checkbox_callback,
         )
+        dpg.add_text(
+            "VAE decodes one image at a time.",
+            parent=dpg.add_tooltip("vae_slicing"),
+        )
+
         dpg.add_checkbox(
             label="Enable xFormers Memory Efficient Attention",
             tag="xformers_memory_attention",
             default_value=imagen.xformers_memory_attention_enabled,
             callback=toggle_xformers_callback,
         )
+
         dpg.add_checkbox(
             label="Enable Compel Prompt Weighting",
             tag="compel_weighting",
             default_value=imagen.compel_weighting_enabled,
             callback=checkbox_callback,
         )
+        dpg.add_text(
+            "Use compel prompt weighting. + to increase weight and - to decrease.",
+            parent=dpg.add_tooltip("compel_weighting"),
+        )
+
         dpg.add_checkbox(
             label="Enable LPW Stable Diffusion Pipeline",
             tag="lpwsd_pipeline",
             default_value=imagen.lpw_stable_diffusion_used,
             callback=lpwsd_callback,
         )
+        dpg.add_text(
+            "Use LPWSD pipeline. Adds prompt weighting as seen in A1111's webui and long prompts.",
+            parent=dpg.add_tooltip("lpwsd_pipeline"),
+        )
+
         dpg.add_button(
             label="Save model weights",
             tag="save_model",

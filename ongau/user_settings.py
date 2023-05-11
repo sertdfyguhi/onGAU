@@ -35,13 +35,16 @@ class UserSettings:
 
         for op in [
             "scheduler",
-            "safety_checker",
             "attention_slicing",
             "vae_slicing",
             "xformers_memory_attention",
             "compel_weighting",
         ]:
             user_settings[op] = self._config.get("user_settings", op, fallback=None)
+
+        user_settings["safety_checker"] = self._config.get(
+            "user_settings", "safety_checker", fallback="True"
+        )
 
         user_settings["base_image_path"] = self._config.get(
             "user_settings", "base_image_path", fallback=""

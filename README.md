@@ -43,6 +43,7 @@ python3 onGAU/main.py
 - [x] Average step time
 - [x] Load .ckpt in app
 - [x] Load .safetensors lora in app
+- [x] Add tooltips
 - [ ] Change embedding models and loras in app
 - [ ] Add super resolution (ESRGAN/SwinIR) support
 - [ ] Create an install script to easily install UI
