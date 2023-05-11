@@ -11,9 +11,8 @@ def next_file_number(path_pattern: str, start_from: int = 1):
     i = start_from
 
     while True:
-        path = path_pattern % i
-        if not os.path.exists(path):
-            return path
+        if not os.path.exists(path_pattern % i):
+            return i
 
         i += 1
 
