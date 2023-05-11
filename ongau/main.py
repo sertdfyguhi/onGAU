@@ -379,10 +379,10 @@ def change_pipeline_callback(_, pipeline: str):
     match pipeline:
         case "Text2Img":
             imagen = Text2Img.from_class(imagen)
-            dpg.hide_item("base_image_path")
+            dpg.hide_item("base_image_group")
         case "SDImg2Img":
             imagen = SDImg2Img.from_class(imagen)
-            dpg.show_item("base_image_path")
+            dpg.show_item("base_image_group")
             base_image_path_callback()
 
     dpg.hide_item("status_text")
@@ -610,19 +610,22 @@ with dpg.window(tag="window"):
     # file dialog to be used
     # with dpg.group(horizontal=True):
     #     btn = dpg.add_button(label="Choose...")
-    dpg.add_input_text(
-        # readonly=True,
-        label="Base Image Path",
-        default_value=user_settings["base_image_path"],
-        width=config.ITEM_WIDTH,
-        tag="base_image_path",
-        callback=base_image_path_callback,
-        show=user_settings["pipeline"] == "SDImg2Img",
-    )
-    dpg.add_text(
-        "The path of the starting image to use in img2img.",
-        parent=dpg.add_tooltip("base_image_path"),
-    )
+    # Group to hide and show tooltip as it breaks if you only hide the parent.
+    with dpg.group(
+        tag="base_image_group", show=user_settings["pipeline"] == "SDImg2Img"
+    ):
+        dpg.add_input_text(
+            # readonly=True,
+            label="Base Image Path",
+            default_value=user_settings["base_image_path"],
+            width=config.ITEM_WIDTH,
+            tag="base_image_path",
+            callback=base_image_path_callback,
+        )
+        dpg.add_text(
+            "The path of the starting image to use in img2img.",
+            parent=dpg.add_tooltip("base_image_path"),
+        )
 
     dpg.add_button(
         label="Advanced Configuration", callback=toggle_advanced_config_callback
