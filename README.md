@@ -12,15 +12,13 @@ A very simple AI image generator UI interface made using [Dear PyGui](https://gi
 git clone https://github.com/sertdfyguhi/onGAU.git
 ```
 
-2. install requirements.txt
+2. run `install.sh` to install all necessary modules
 
 ```sh
-pip3 install -r requirements.txt
+./install.sh
 ```
 
-3. set the model, device, and other configuration in `onGAU/config.py`
-
-4. run `onGAU/main.py`
+3. run `onGAU/main.py` to start the UI
 
 ```sh
 python3 onGAU/main.py

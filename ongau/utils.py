@@ -2,6 +2,7 @@ from imagen import GeneratedImage
 
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL.PngImagePlugin import PngInfo
+import torch
 import os
 
 

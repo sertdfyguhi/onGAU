@@ -4,17 +4,32 @@ from user_settings import UserSettings
 import logger, config, pipelines
 
 from diffusers import schedulers
-from torch import cuda
 import dearpygui.dearpygui as dpg
 import imagesize
 import pyperclip
 import utils
+import torch
 import time
 import os
 
 # Constants
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
+DEVICE = config.DEVICE
+
+if DEVICE == "auto":
+    if torch.cuda.is_available():
+        DEVICE = "cuda"
+    elif getattr(torch, "has_mps", False):
+        DEVICE = "mps"
+    else:
+        DEVICE = "cpu"
+
+print(
+    logger.create(
+        f"Using device {logger.create(DEVICE, [logger.BOLD])}.", [logger.INFO]
+    )
+)
 
 # load user settings
 settings_manager = UserSettings(config.USER_SETTINGS_FILE)
@@ -28,12 +43,12 @@ imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Im
 logger.info(f"Loading {model_path}...")
 
 try:
-    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
+    imagen = imagen_class(model_path, DEVICE, use_LPWSD)
 except ValueError as e:
     logger.warn(str(e))
 
     logger.info(f"Loading {model_path}...")
-    imagen = imagen_class(model_path, config.DEVICE, False)
+    imagen = imagen_class(model_path, DEVICE, False)
 except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
@@ -42,7 +57,7 @@ except FileNotFoundError:
     )
 
     logger.info(f"Loading {model_path}...")
-    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
+    imagen = imagen_class(model_path, DEVICE, use_LPWSD)
 
 if user_settings["safety_checker"] == "True":
     imagen.disable_safety_checker()
@@ -342,7 +357,7 @@ def checkbox_callback(tag: str, value: bool):
 
 def toggle_xformers_callback(_, value: bool):
     """Callback to toggle xformers."""
-    if not cuda.is_available():
+    if not torch.cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
         status("Xformers is only available for GPUs.", logger.error)
         return
@@ -515,7 +530,7 @@ with dpg.window(tag="window"):
         tag="prompt",
     )
     dpg.add_text(
-        "What you want to see in the image.",
+        "The instructions of the generated image.",
         parent=dpg.add_tooltip("prompt"),
     )
 
@@ -526,7 +541,7 @@ with dpg.window(tag="window"):
         tag="negative_prompt",
     )
     dpg.add_text(
-        "What you don't want to see in the image.",
+        "The instructions of what to remove of the generated image.",
         parent=dpg.add_tooltip("negative_prompt"),
     )
 
