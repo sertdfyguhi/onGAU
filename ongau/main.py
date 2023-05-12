@@ -236,7 +236,10 @@ def generate_image_callback():
 
         try:
             imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
-        except RuntimeError as e:  # When compel prompt weighting is enabled.
+        except (
+            RuntimeError,
+            FileNotFoundError,
+        ) as e:  # When compel prompt weighting is enabled / model is not found.
             status(str(e), logger.error)
             update_window_title()
             return
