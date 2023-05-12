@@ -1,4 +1,4 @@
-# Logging with style~
+# Fancy logging with colors.
 
 # ANSI escape codes
 RESET = "\033[m"

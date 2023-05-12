@@ -47,7 +47,7 @@ try:
 except ValueError as e:
     logger.warn(str(e))
 
-    logger.info(f"Loading {model_path}...")
+    # logger.info(f"Loading {model_path}...")
     imagen = imagen_class(model_path, DEVICE, False)
 except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
@@ -242,6 +242,7 @@ def generate_image_callback():
             return
         except ValueError as e:  # When LPWSD pipeline is enabled.
             logger.warn(str(e))
+            dpg.set_value("lpwsd_pipeline", False)
             imagen.set_model(model_path, False)
 
         dpg.hide_item("status_text")
@@ -304,7 +305,9 @@ Total time: {total_time:.1f}s"""
 
     dpg.set_value(
         "info_text",
-        f"Current Image Seed: {images[0].seed}\nAverage step time: {average_step_time:.1f}s\nTotal time: {total_time:.1f}s",
+        f"""Current Image Seed: {images[0].seed}
+Average step time: {average_step_time:.1f}s
+Total time: {total_time:.1f}s""",
     )
 
     # Prepare the images to be shown in UI.

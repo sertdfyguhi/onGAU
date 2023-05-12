@@ -29,6 +29,7 @@ def create_torch_generator(
 
 
 # https://github.com/huggingface/diffusers/blob/main/scripts/convert_lora_safetensor_to_diffusers.py
+# This implementation does break sometimes.
 def load_lora(
     pipeline,
     lora_path: str,
@@ -38,7 +39,7 @@ def load_lora(
     LORA_PREFIX_UNET: str = "lora_unet",
 ):
     # load LoRA weight from .safetensors
-    state_dict = _load_file(lora_path)
+    state_dict = _load_file(lora_path, device)
 
     visited = []
 

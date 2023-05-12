@@ -265,7 +265,7 @@ class BaseImagen:
     def load_lora(self, lora_path: str, weight: float = 0.75):
         """Load a .safetensors lora."""
         self._pipeline = utils.load_lora(
-            self._pipeline.to("cpu"),  # convert to cpu because it fails idfk
+            self._pipeline,
             lora_path,
             self._device,
             weight,
