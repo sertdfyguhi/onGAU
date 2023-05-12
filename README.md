@@ -2,7 +2,7 @@
 
 ![interface of onGAU on Mac](https://raw.githubusercontent.com/sertdfyguhi/onGAU/master/interface.png)
 
-A very simple AI image generator UI interface made using [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
+A very simple AI image generator UI interface built with [Dear PyGui](https://github.com/hoffstadt/DearPyGui) and [Diffusers](https://github.com/huggingface/diffusers).
 
 ## Installation
 

@@ -1,14 +1,21 @@
-from .base import BaseImagen, GeneratedImage
+from .base import BaseImagen, GeneratedImage, GeneratedLatents
 from . import utils
 
 from diffusers import StableDiffusionImg2ImgPipeline
 from dataclasses import dataclass
 from typing import Callable
 from PIL.Image import Image
+import torch
+import time
 
 
-@dataclass(frozen=True)
+@dataclass
 class Img2ImgGeneratedImage(GeneratedImage):
+    base_image_path: str
+
+
+@dataclass
+class Img2ImgGeneratedLatents(GeneratedLatents):
     base_image_path: str
 
 
@@ -19,6 +26,31 @@ class SDImg2Img(BaseImagen):
             StableDiffusionImg2ImgPipeline,
             use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
+
+    def convert_latent_to_image(
+        self, latents: Img2ImgGeneratedLatents
+    ) -> GeneratedImage:
+        """Convert a GeneratedLatent object into a GeneratedImage object."""
+        # Convert latent space image into PIL image.
+        with torch.no_grad():
+            images = self._pipeline.numpy_to_pil(
+                self._pipeline.decode_latents(latents.latents)
+            )
+
+        # Remove latents since GeneratedImage object does not contain a latents value.
+        del latents.latents
+
+        seeds = latents.seeds
+        del latents.seeds
+
+        return [
+            Img2ImgGeneratedImage(
+                image=image,
+                seed=seeds[i],
+                **dict(latents),
+            )
+            for i, image in enumerate(images)
+        ]
 
     def generate_image(
         self,
@@ -51,6 +83,40 @@ class SDImg2Img(BaseImagen):
                 negative_prompt
             )
 
+        # Use for callback.
+        out_image_kwargs = {
+            "base_image_path": base_image.filename,
+            "model": self._model,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "guidance_scale": guidance_scale,
+            "step_count": step_count,
+            "pipeline": self.pipeline,
+            "scheduler": self.scheduler,
+            "karras_sigmas_used": self._karras_sigmas_used,
+            "clip_skip": self._clip_skip_amount,
+            "loras": self._loras_loaded,
+            "embeddings": self._embedding_models_loaded,
+            "width": base_image.size[0],
+            "height": base_image.size[1],
+        }
+
+        last_step_time = time.time()
+
+        def callback_wrapper(step: int, _, latents):
+            nonlocal last_step_time
+
+            progress_callback(
+                step,
+                step_count,
+                time.time() - last_step_time,
+                Img2ImgGeneratedLatents(
+                    **out_image_kwargs, seeds=seeds, latents=latents
+                ),
+            )
+
+            last_step_time = time.time()
+
         kwargs = {
             "image": base_image,
             "prompt": temp_prompt,
@@ -60,7 +126,7 @@ class SDImg2Img(BaseImagen):
             "num_inference_steps": step_count,
             "guidance_scale": guidance_scale,
             "num_images_per_prompt": image_amount,
-            "callback": progress_callback,
+            "callback": callback_wrapper,
         }
 
         if self._lpw_stable_diffusion_used:
@@ -85,23 +151,9 @@ class SDImg2Img(BaseImagen):
         for i, image in enumerate(images):
             result.append(
                 Img2ImgGeneratedImage(
-                    base_image_path=base_image.filename,
-                    model=self._model,
+                    **out_image_kwargs,
                     image=image.convert("RGBA"),
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    # strength=strength,
-                    guidance_scale=guidance_scale,
-                    step_count=step_count,
                     seed=seeds[i],
-                    pipeline=self.pipeline,
-                    scheduler=self.scheduler,
-                    karras_sigmas_used=self._karras_sigmas_used,
-                    clip_skip=self._clip_skip_amount,
-                    loras=self._loras_loaded,
-                    embeddings=self._embedding_models_loaded,
-                    width=image.size[0],
-                    height=image.size[1],
                 )
             )
 

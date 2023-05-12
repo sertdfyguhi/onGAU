@@ -2,13 +2,14 @@ from . import utils
 
 from diffusers import SchedulerMixin, DiffusionPipeline
 from huggingface_hub.utils import HFValidationError
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from compel import Compel
 from PIL import Image
+from torch import Tensor
 import os
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeneratedImage:
     model: str
     image: Image
@@ -25,6 +26,31 @@ class GeneratedImage:
     embeddings: list[str]
     width: int
     height: int
+
+    def __dict__(self):
+        return asdict(self)
+
+
+@dataclass
+class GeneratedLatents:
+    model: str
+    latents: Tensor
+    prompt: str
+    negative_prompt: str
+    guidance_scale: int
+    step_count: int
+    seeds: list[int]
+    pipeline: DiffusionPipeline
+    scheduler: SchedulerMixin
+    karras_sigmas_used: bool
+    clip_skip: int
+    loras: list[str]
+    embeddings: list[str]
+    width: int
+    height: int
+
+    def __dict__(self):
+        return asdict(self)
 
 
 class BaseImagen:

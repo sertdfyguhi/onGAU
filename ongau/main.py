@@ -120,6 +120,8 @@ dpg.create_viewport(
 texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 base_image_aspect_ratio = None
+last_step_latents = None
+gen_interrupted = False
 
 
 def update_window_title(info: str = None):
@@ -205,8 +207,12 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
         )
 
 
-def gen_progress_callback(step: int, step_count: int, elapsed_time: float):
+def gen_progress_callback(step: int, step_count: int, elapsed_time: float, latents):
     """Callback to update UI to show generation progress."""
+    global last_step_latents, gen_interrupted
+
+    last_step_latents = latents
+
     progress = step / step_count
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
 
@@ -220,6 +226,10 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float):
     dpg.configure_item(
         "progress_bar", overlay=overlay if progress < 1 else "Loading..."
     )
+
+    # Check if generation has been interrupted.
+    if gen_interrupted:
+        time.sleep(1800)  # Wait for 30 minutes and continue generation.
 
 
 def generate_image_callback():
@@ -269,6 +279,7 @@ def generate_image_callback():
         except ValueError as e:
             logger.error(str(e))
 
+    dpg.show_item("interrupt_btn")
     dpg.show_item("progress_bar")
     dpg.hide_item("info_group")
     dpg.hide_item("output_button_group")
@@ -277,56 +288,60 @@ def generate_image_callback():
 
     start_time = time.time()
 
-    if type(imagen) == Text2Img:
-        images = pipelines.text2img(imagen, gen_progress_callback)
-    else:
-        images = pipelines.img2img(imagen, gen_progress_callback)
+    # Callback to run after generation thread finishes generation.
+    def finish_generation_callback(images: list):
+        if not images:
+            return
 
-    if not images:
-        return
+        # Add an "s" if there are more than 1 image.
+        plural = "s" if len(images) > 1 else ""
+        total_time = time.time() - start_time
 
-    # Add an "s" if there are more than 1 image.
-    plural = "s" if len(images) > 1 else ""
-    total_time = time.time() - start_time
-
-    print(
-        logger.create(
-            f"Finished generating image{plural}.", [logger.SUCCESS, logger.BOLD]
+        print(
+            logger.create(
+                f"Finished generating image{plural}.", [logger.SUCCESS, logger.BOLD]
+            )
         )
-    )
 
-    average_step_time = total_time / sum([image.step_count for image in images])
+        average_step_time = total_time / sum([image.step_count for image in images])
 
-    logger.info(
-        f"""Seed{plural}: {', '.join([str(image.seed) for image in images])}
+        logger.info(
+            f"""Seed{plural}: {', '.join([str(image.seed) for image in images])}
 Average step time: {average_step_time:.1f}s
 Total time: {total_time:.1f}s"""
-    )
+        )
 
-    dpg.set_value(
-        "info_text",
-        f"""Current Image Seed: {images[0].seed}
+        dpg.set_value(
+            "info_text",
+            f"""Current Image Seed: {images[0].seed}
 Average step time: {average_step_time:.1f}s
 Total time: {total_time:.1f}s""",
-    )
+        )
 
-    # Prepare the images to be shown in UI.
-    texture_manager.prepare(images)
+        # Prepare the images to be shown in UI.
+        texture_manager.prepare(images)
 
-    update_window_title()
-    update_image_widget(*texture_manager.current())
+        update_window_title()
+        update_image_widget(*texture_manager.current())
 
-    # Reset progress bar..
-    dpg.set_value("progress_bar", 0.0)
-    dpg.configure_item("progress_bar", overlay="0%")
+        # Reset progress bar..
+        dpg.set_value("progress_bar", 0.0)
+        dpg.configure_item("progress_bar", overlay="0%")
 
-    # Show image index counter.
-    dpg.set_value("output_image_index", texture_manager.to_counter_string())
+        # Show image index counter.
+        dpg.set_value("output_image_index", texture_manager.to_counter_string())
 
-    dpg.hide_item("progress_bar")
-    dpg.show_item("info_group")
-    dpg.show_item("output_button_group")
-    dpg.show_item("output_image_group")
+        dpg.hide_item("interrupt_btn")
+        dpg.hide_item("progress_bar")
+        dpg.show_item("info_group")
+        dpg.show_item("output_button_group")
+        dpg.show_item("output_image_group")
+
+    # Start thread to generate image.
+    if type(imagen) == Text2Img:
+        pipelines.text2img(imagen, finish_generation_callback, gen_progress_callback)
+    else:
+        pipelines.img2img(imagen, finish_generation_callback, gen_progress_callback)
 
 
 def switch_image_callback(tag: str):
@@ -482,6 +497,27 @@ def use_in_img2img_callback():
     dpg.set_value("use_in_img2img", "Use In Img2Img")
 
 
+def interrupt_callback():
+    """Callback to interrupt the generation process."""
+    global gen_interrupted
+
+    if not last_step_latents:
+        return
+
+    gen_interrupted = True
+
+    update_window_title("Decoding latents...")
+
+    # Convert GeneratedLatents object into a GeneratedImage object to be compatible with other code.
+    images = imagen.convert_latent_to_image(last_step_latents)
+
+    print(images)
+
+    texture_manager.prepare(images)
+    update_image_widget(*texture_manager.current())
+    update_window_title("Interrupted.")
+
+
 # def load_settings_image_callback():
 #     """Callback to load generation settings from an inputted onGAU generated image file."""
 #     pass
@@ -583,6 +619,7 @@ with dpg.window(tag="window"):
     #     width=config.ITEM_WIDTH,
     #     tag="strength",
     # )
+
     dpg.add_input_float(
         label="Guidance Scale",
         default_value=float(user_settings["guidance_scale"]),
@@ -766,6 +803,9 @@ with dpg.window(tag="window"):
         )
 
     dpg.add_button(label="Generate Image", callback=generate_image_callback)
+    dpg.add_button(
+        label="Interrupt", callback=interrupt_callback, show=False, tag="interrupt_btn"
+    )
     dpg.add_progress_bar(
         overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
     )
