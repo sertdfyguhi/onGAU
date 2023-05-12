@@ -2,6 +2,7 @@ from .base import BaseImagen, GeneratedImage, GeneratedLatents
 from . import utils
 
 from diffusers import StableDiffusionPipeline
+from dataclasses import asdict
 from typing import Callable
 import torch
 import time
@@ -24,17 +25,17 @@ class Text2Img(BaseImagen):
                 self._pipeline.decode_latents(latents.latents)
             )
 
-        # Remove latents since GeneratedImage object does not contain a latents value.
-        del latents.latents
+        dict_latents = asdict(latents)
 
-        seeds = latents.seeds
-        del latents.seeds
+        # Remove latents and seeds since GeneratedImage object does not contain a latents/seeds value.
+        del dict_latents["latents"]
+        del dict_latents["seeds"]
 
         return [
             GeneratedImage(
-                image=image,
-                seed=seeds[i],
-                **dict(latents),
+                image=image.convert("RGBA"),
+                seed=latents.seeds[i],
+                **dict_latents,
             )
             for i, image in enumerate(images)
         ]

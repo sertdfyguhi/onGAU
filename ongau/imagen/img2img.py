@@ -2,7 +2,7 @@ from .base import BaseImagen, GeneratedImage, GeneratedLatents
 from . import utils
 
 from diffusers import StableDiffusionImg2ImgPipeline
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Callable
 from PIL.Image import Image
 import torch
@@ -37,17 +37,17 @@ class SDImg2Img(BaseImagen):
                 self._pipeline.decode_latents(latents.latents)
             )
 
-        # Remove latents since GeneratedImage object does not contain a latents value.
-        del latents.latents
+        dict_latents = asdict(latents)
 
-        seeds = latents.seeds
-        del latents.seeds
+        # Remove latents and seeds since GeneratedImage object does not contain a latents/seeds value.
+        del dict_latents["latents"]
+        del dict_latents["seeds"]
 
         return [
             Img2ImgGeneratedImage(
-                image=image,
-                seed=seeds[i],
-                **dict(latents),
+                image=image.convert("RGBA"),
+                seed=latents.seeds[i],
+                **dict_latents,
             )
             for i, image in enumerate(images)
         ]

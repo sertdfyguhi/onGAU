@@ -15,19 +15,10 @@ import os
 # Constants
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
-DEVICE = config.DEVICE
-
-if DEVICE == "auto":
-    if torch.cuda.is_available():
-        DEVICE = "cuda"
-    elif getattr(torch, "has_mps", False):
-        DEVICE = "mps"
-    else:
-        DEVICE = "cpu"
 
 print(
     logger.create(
-        f"Using device {logger.create(DEVICE, [logger.BOLD])}.", [logger.INFO]
+        f"Using device {logger.create(config.DEVICE, [logger.BOLD])}.", [logger.INFO]
     )
 )
 
@@ -43,12 +34,12 @@ imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Im
 logger.info(f"Loading {model_path}...")
 
 try:
-    imagen = imagen_class(model_path, DEVICE, use_LPWSD)
+    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
 except ValueError as e:
     logger.warn(str(e))
 
     # logger.info(f"Loading {model_path}...")
-    imagen = imagen_class(model_path, DEVICE, False)
+    imagen = imagen_class(model_path, config.DEVICE, False)
 except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
@@ -57,7 +48,7 @@ except FileNotFoundError:
     )
 
     logger.info(f"Loading {model_path}...")
-    imagen = imagen_class(model_path, DEVICE, use_LPWSD)
+    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
 
 if user_settings["safety_checker"] == "True":
     imagen.disable_safety_checker()
@@ -122,6 +113,7 @@ file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 base_image_aspect_ratio = None
 last_step_latents = None
 gen_interrupted = False
+gen_stopped = False
 
 
 def update_window_title(info: str = None):
@@ -184,7 +176,8 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
     img_w, img_h = utils.resize_size_to_fit(
         (image.width, image.height),
         (
-            dpg.get_viewport_width() - 460,  # subtration to account for position change
+            # subtraction to account for position change
+            dpg.get_viewport_width() - 460,
             dpg.get_viewport_height() - 42,  # subtraction to account for margin
         ),
     )
@@ -209,7 +202,18 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
 
 def gen_progress_callback(step: int, step_count: int, elapsed_time: float, latents):
     """Callback to update UI to show generation progress."""
-    global last_step_latents, gen_interrupted
+    global last_step_latents, gen_interrupted, gen_stopped
+
+    # Check if generation has been interrupted.
+    if gen_interrupted:
+        gen_stopped = True
+
+        # Continuously check for restart.
+        while gen_interrupted:
+            # Sleep to avoid using too much resources.
+            time.sleep(1)
+
+        gen_stopped = False
 
     last_step_latents = latents
 
@@ -226,10 +230,6 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
     dpg.configure_item(
         "progress_bar", overlay=overlay if progress < 1 else "Loading..."
     )
-
-    # Check if generation has been interrupted.
-    if gen_interrupted:
-        time.sleep(1800)  # Wait for 30 minutes and continue generation.
 
 
 def generate_image_callback():
@@ -286,12 +286,26 @@ def generate_image_callback():
     dpg.hide_item("output_image_group")
     dpg.hide_item("status_text")
 
+    for child in dpg.get_item_children("advanced_config")[1]:
+        # Ignore tooltips.
+        if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
+            continue
+
+        dpg.disable_item(child)
+
     start_time = time.time()
 
     # Callback to run after generation thread finishes generation.
     def finish_generation_callback(images: list):
         if not images:
             return
+
+        for child in dpg.get_item_children("advanced_config")[1]:
+            # Ignore tooltips.
+            if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
+                continue
+
+            dpg.enable_item(child)
 
         # Add an "s" if there are more than 1 image.
         plural = "s" if len(images) > 1 else ""
@@ -377,7 +391,7 @@ def toggle_xformers_callback(_, value: bool):
     """Callback to toggle xformers."""
     if not torch.cuda.is_available():
         dpg.set_value("xformers_memory_attention", False)
-        status("Xformers is only available for GPUs.", logger.error)
+        status("Xformers is only available for cuda.", logger.error)
         return
 
     try:
@@ -477,7 +491,7 @@ def use_in_img2img_callback():
     """Callback to send current generated image to img2img pipeline."""
     global file_number
 
-    dpg.set_value("use_in_img2img", "Loading...")
+    dpg.set_value("use_in_img2img_btn", "Loading...")
 
     file_number = utils.next_file_number(config.SAVE_FILE_PATTERN, file_number)
     file_path = config.SAVE_FILE_PATTERN % file_number
@@ -494,7 +508,7 @@ def use_in_img2img_callback():
         dpg.set_value("pipeline", "SDImg2Img")
         change_pipeline_callback(None, "SDImg2Img")
 
-    dpg.set_value("use_in_img2img", "Use In Img2Img")
+    dpg.set_value("use_in_img2img_btn", "Use In Img2Img")
 
 
 def interrupt_callback():
@@ -504,18 +518,50 @@ def interrupt_callback():
     if not last_step_latents:
         return
 
-    gen_interrupted = True
+    if gen_interrupted:
+        gen_interrupted = False
+        texture_manager.clear()
 
-    update_window_title("Decoding latents...")
+        logger.info("Generation restarted.")
 
-    # Convert GeneratedLatents object into a GeneratedImage object to be compatible with other code.
-    images = imagen.convert_latent_to_image(last_step_latents)
+        # set_value doesn't work for some reason.
+        dpg.configure_item("interrupt_btn", label="Interrupt Generation")
 
-    print(images)
+        update_window_title()
+        dpg.hide_item("output_button_group")
 
-    texture_manager.prepare(images)
-    update_image_widget(*texture_manager.current())
-    update_window_title("Interrupted.")
+        dpg.hide_item("output_image_group")
+        dpg.show_item("use_in_img2img_btn")
+    else:
+        gen_interrupted = True
+
+        logger.info("Waiting for generation to stop...")
+        update_window_title("Waiting for generation to stop...")
+
+        # Wait for generation to actually stop to avoid segfaults.
+        while not gen_stopped:
+            time.sleep(0.1)
+
+        logger.info("Decoding latents...")
+        update_window_title("Decoding latents...")
+
+        # Convert GeneratedLatents object into a GeneratedImage object to be compatible with other code.
+        images = imagen.convert_latent_to_image(last_step_latents)
+
+        # set_value doesn't work for some reason.
+        dpg.configure_item("interrupt_btn", label="Continue Generation")
+
+        texture_manager.prepare(images)
+        update_image_widget(*texture_manager.current())
+        update_window_title("Generation interrupted.")
+
+        # Show image index counter.
+        dpg.set_value("output_image_index", texture_manager.to_counter_string())
+
+        dpg.show_item("output_button_group")
+
+        dpg.hide_item("use_in_img2img_btn")
+        dpg.show_item("output_image_group")
 
 
 # def load_settings_image_callback():
@@ -802,13 +848,14 @@ with dpg.window(tag="window"):
             callback=save_model_callback,
         )
 
-    dpg.add_button(label="Generate Image", callback=generate_image_callback)
-    dpg.add_button(
-        label="Interrupt", callback=interrupt_callback, show=False, tag="interrupt_btn"
-    )
-    dpg.add_progress_bar(
-        overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
-    )
+    with dpg.group(horizontal=True):
+        dpg.add_button(label="Generate Image", callback=generate_image_callback)
+        dpg.add_button(
+            label="Interrupt Generation",
+            callback=interrupt_callback,
+            show=False,
+            tag="interrupt_btn",
+        )
 
     # change tag name to smth better
     with dpg.group(tag="output_button_group", show=False):
@@ -817,7 +864,7 @@ with dpg.window(tag="window"):
         )
         dpg.add_button(
             label="Use In Img2Img",
-            tag="use_in_img2img",
+            tag="use_in_img2img_btn",
             callback=use_in_img2img_callback,
         )
 
@@ -829,6 +876,10 @@ with dpg.window(tag="window"):
         )
 
     dpg.add_text(tag="status_text")
+
+    dpg.add_progress_bar(
+        overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
+    )
 
     with dpg.group(pos=(460, 7), show=False, tag="output_image_group"):
         with dpg.group(horizontal=True, tag="output_image_selection"):

@@ -45,7 +45,7 @@ python3 onGAU/main.py
 - [ ] Change embedding models and loras in app
 - [ ] Add super resolution (ESRGAN/SwinIR) support
 - [x] Create an install script to easily install UI
-- [ ] Interrupt generation process
+- [x] Interrupt generation process
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled

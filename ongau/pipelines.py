@@ -99,8 +99,6 @@ def img2img(
         _error("Base image path is not an image file.")
         return
 
-    logger.info("Starting generation...")
-
     _generate(
         imagen.generate_image,
         callback,

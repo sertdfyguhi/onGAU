@@ -25,9 +25,9 @@ class TextureManager:
     def images(self):
         return self._images
 
-    def prepare(self, images: list[GeneratedImage | Image]) -> None:
+    def prepare(self, images: list[GeneratedImage]) -> None:
         """Prepare a list of GeneratedImages or PIL images into the manager."""
-        if not self._textures:
+        if len(self._textures) > 0:
             self.clear()
 
         self._images = images
