@@ -2,7 +2,7 @@
 
 ![interface of onGAU on Mac](https://raw.githubusercontent.com/sertdfyguhi/onGAU/master/interface.png)
 
-A very simple AI image generator UI interface made using [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
+A very simple AI image generator UI interface built with [Dear PyGui](https://github.com/hoffstadt/DearPyGui) and [Diffusers](https://github.com/huggingface/diffusers).
 
 ## Installation
 
@@ -45,7 +45,7 @@ python3 onGAU/main.py
 - [ ] Change embedding models and loras in app
 - [ ] Add super resolution (ESRGAN/SwinIR) support
 - [x] Create an install script to easily install UI
-- [ ] Interrupt generation process
+- [x] Interrupt generation process
 - [ ] Compile code into cross platform executable
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled

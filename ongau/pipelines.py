@@ -2,21 +2,23 @@ from imagen import SDImg2Img, Img2ImgGeneratedImage, Text2Img, GeneratedImage
 import logger
 
 from PIL import UnidentifiedImageError, Image
-from typing import Callable
+from threading import Thread
 import dearpygui.dearpygui as dpg
-import time
 import re
 import os
 
-last_step_time = None
 
+def _generate(func, callback, **kwargs):
+    logger.info("Starting generation...")
 
-def _callback(step: int, step_count: int, progress_callback: Callable):
-    global last_step_time
+    def worker():
+        # TODO: Handle generation errors.
+        images = func(**kwargs)
+        callback(images)
 
-    # Call provided progress callback with the calculated step time.
-    progress_callback(step, step_count, time.time() - last_step_time)
-    last_step_time = time.time()
+    # Create and start the generation thread.
+    thread = Thread(target=worker)
+    thread.start()
 
 
 def _error(error: str):
@@ -26,9 +28,7 @@ def _error(error: str):
     dpg.show_item("status_text")
 
 
-def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedImage]:
-    global last_step_time
-
+def text2img(imagen: Text2Img, callback, progress_callback) -> list[GeneratedImage]:
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
     size = dpg.get_values(["width", "height"])
@@ -49,11 +49,9 @@ def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedIma
             _error("Seeds provided are not integers.")
             return
 
-    last_step_time = time.time()
-
-    logger.info("Starting generation...")
-
-    return imagen.generate_image(
+    _generate(
+        imagen.generate_image,
+        callback,
         prompt=prompt,
         negative_prompt=negative_prompt,
         size=size,
@@ -61,17 +59,13 @@ def text2img(imagen: Text2Img, progress_callback: Callable) -> list[GeneratedIma
         step_count=step_count,
         seed=seed,
         image_amount=image_amount,
-        progress_callback=lambda step, *_: _callback(
-            step, step_count, progress_callback
-        ),
+        progress_callback=progress_callback,
     )
 
 
 def img2img(
-    imagen: SDImg2Img, progress_callback: Callable
+    imagen: SDImg2Img, callback, progress_callback
 ) -> list[Img2ImgGeneratedImage]:
-    global last_step_time
-
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
     size = dpg.get_values(["width", "height"])
@@ -105,11 +99,9 @@ def img2img(
         _error("Base image path is not an image file.")
         return
 
-    last_step_time = time.time()
-
-    logger.info("Starting generation...")
-
-    return imagen.generate_image(
+    _generate(
+        imagen.generate_image,
+        callback,
         base_image=base_image,
         prompt=prompt,
         negative_prompt=negative_prompt,
@@ -117,7 +109,5 @@ def img2img(
         step_count=step_count,
         seed=seed,
         image_amount=image_amount,
-        progress_callback=lambda step, *_: _callback(
-            step, step_count, progress_callback
-        ),
+        progress_callback=progress_callback,
     )

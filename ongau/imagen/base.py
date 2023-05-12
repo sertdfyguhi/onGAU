@@ -5,10 +5,11 @@ from huggingface_hub.utils import HFValidationError
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
+import torch
 import os
 
 
-@dataclass(frozen=True)
+@dataclass
 class GeneratedImage:
     model: str
     image: Image
@@ -17,6 +18,25 @@ class GeneratedImage:
     guidance_scale: int
     step_count: int
     seed: int
+    pipeline: DiffusionPipeline
+    scheduler: SchedulerMixin
+    karras_sigmas_used: bool
+    clip_skip: int
+    loras: list[str]
+    embeddings: list[str]
+    width: int
+    height: int
+
+
+@dataclass
+class GeneratedLatents:
+    model: str
+    latents: torch.Tensor
+    prompt: str
+    negative_prompt: str
+    guidance_scale: int
+    step_count: int
+    seeds: list[int]
     pipeline: DiffusionPipeline
     scheduler: SchedulerMixin
     karras_sigmas_used: bool
@@ -183,7 +203,8 @@ class BaseImagen:
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
-        self._pipeline = self._pipeline.to(self._device)
+        self.set_device(self._device)
+
         self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
         if scheduler:
@@ -274,6 +295,14 @@ class BaseImagen:
 
     def set_device(self, device: str):
         """Change device of pipeline."""
+        if device == "auto":
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif getattr(torch, "has_mps", False):
+                device = "mps"
+            else:
+                device = "cpu"
+
         self._device = device
         self._pipeline = self._pipeline.to(device)
 
