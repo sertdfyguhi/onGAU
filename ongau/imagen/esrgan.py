@@ -16,6 +16,7 @@ class UpscaledImage:
     upscale_amount: int
     width: int
     height: int
+    seed: int
     image: Image.Image
     original_image: GeneratedImage
 
@@ -121,6 +122,7 @@ class ESRGAN:
             upscale_amount=upscale,
             width=width,
             height=height,
+            seed=generated_image.seed,
             image=_convert_cv2_to_PIL(output).convert("RGBA"),
             original_image=generated_image,
         )
