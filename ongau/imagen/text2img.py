@@ -54,9 +54,7 @@ class Text2Img(BaseImagen):
     ) -> list[GeneratedImage]:
         generators, seeds = utils.create_torch_generator(
             seed,
-            "cpu"
-            if self._lpw_stable_diffusion_used and self._device == "mps"
-            else self._device,  # bug in lpwsd pipeline that causes it to break when using mps generators
+            "cpu",
             image_amount,
         )
 

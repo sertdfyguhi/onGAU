@@ -307,6 +307,8 @@ def generate_image_callback():
 
         dpg.disable_item(child)
 
+    dpg.disable_item("generate_btn")
+
     start_time = time.time()
 
     # Callback to run after generation thread finishes generation.
@@ -320,6 +322,8 @@ def generate_image_callback():
                 continue
 
             dpg.enable_item(child)
+
+        dpg.enable_item("generate_btn")
 
         # Add an "s" if there are more than 1 image.
         plural = "s" if len(images) > 1 else ""
@@ -918,7 +922,9 @@ with dpg.window(tag="window"):
             callback=save_model_callback,
         )
 
-    dpg.add_button(label="Generate Image", callback=generate_image_callback)
+    dpg.add_button(
+        label="Generate Image", tag="generate_btn", callback=generate_image_callback
+    )
 
     with dpg.group(horizontal=True):
         dpg.add_button(

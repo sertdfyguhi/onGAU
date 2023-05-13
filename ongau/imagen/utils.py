@@ -6,10 +6,7 @@ def create_torch_generator(
     seed: int | list[int] | None, device: str, generator_amount: int = 1
 ):
     if type(seed) == int:
-        return (
-            [torch.Generator(device=device).manual_seed(seed)] * generator_amount,
-            [seed] * generator_amount,
-        )
+        seed = [seed] * generator_amount
 
     generators = []
     seeds = []
