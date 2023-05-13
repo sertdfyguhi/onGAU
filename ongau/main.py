@@ -1,4 +1,4 @@
-from imagen import Text2Img, SDImg2Img, GeneratedImage
+from imagen import Text2Img, SDImg2Img, ESRGAN, GeneratedImage
 from texture_manager import TextureManager
 from user_settings import UserSettings
 import logger, config, pipelines
@@ -110,10 +110,16 @@ dpg.create_viewport(
 
 texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
+esrgan = None
+
 base_image_aspect_ratio = None
 last_step_latents = None
-gen_interrupted = False
-gen_stopped = False
+
+# 0 is for generating
+# 1 is interrupt called
+# 2 is generation halted
+# 3 is exit generation
+gen_status = 0
 
 
 def update_window_title(info: str = None):
@@ -202,18 +208,23 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
 
 def gen_progress_callback(step: int, step_count: int, elapsed_time: float, latents):
     """Callback to update UI to show generation progress."""
-    global last_step_latents, gen_interrupted, gen_stopped
+    global last_step_latents, gen_status
 
     # Check if generation has been interrupted.
-    if gen_interrupted:
-        gen_stopped = True
+    if gen_status == 1:
+        # Status to generation halted.
+        gen_status = 2
 
         # Continuously check for restart.
-        while gen_interrupted:
+        while gen_status == 2:
             # Sleep to avoid using too much resources.
             time.sleep(1)
 
-        gen_stopped = False
+        # If exit generation is called.
+        if gen_status == 3:
+            raise RuntimeError("Generation exited.")
+
+        gen_status = 0
 
     last_step_latents = latents
 
@@ -314,11 +325,7 @@ def generate_image_callback():
         plural = "s" if len(images) > 1 else ""
         total_time = time.time() - start_time
 
-        print(
-            logger.create(
-                f"Finished generating image{plural}.", [logger.SUCCESS, logger.BOLD]
-            )
-        )
+        logger.success(f"Finished generating image{plural}.")
 
         average_step_time = total_time / sum([image.step_count for image in images])
 
@@ -516,13 +523,13 @@ def use_in_img2img_callback():
 
 def interrupt_callback():
     """Callback to interrupt the generation process."""
-    global gen_interrupted
+    global gen_status
 
     if not last_step_latents:
         return
 
-    if gen_interrupted:
-        gen_interrupted = False
+    if gen_status == 2:
+        gen_status = 0
         texture_manager.clear()
 
         logger.info("Generation restarted.")
@@ -536,13 +543,13 @@ def interrupt_callback():
         dpg.hide_item("output_image_group")
         dpg.show_item("use_in_img2img_btn")
     else:
-        gen_interrupted = True
+        gen_status = 1
 
         logger.info("Waiting for generation to stop...")
         update_window_title("Waiting for generation to stop...")
 
         # Wait for generation to actually stop to avoid segfaults.
-        while not gen_stopped:
+        while gen_status == 1:
             time.sleep(0.1)
 
         logger.info("Decoding latents...")
@@ -565,6 +572,54 @@ def interrupt_callback():
 
         dpg.hide_item("use_in_img2img_btn")
         dpg.show_item("output_image_group")
+
+
+def upscale_image_callback():
+    """Callback to upscale the currently shown image."""
+    global esrgan
+
+    # Check if it has been defined yet.
+    if config.ESRGAN_MODEL == "":
+        logger.error(
+            "ESRGAN model path has not been defined in config.py yet. Link to download the model: https://github.com/xinntao/Real-ESRGAN"
+        )
+        return
+
+    # Initialize the ESRGAN model if it hasn't been initialized yet.
+    if not esrgan:
+        logger.info("Initializing ESRGAN model...")
+        model_path = utils.append_dir_if_startswith(
+            config.ESRGAN_MODEL, FILE_DIR, "models/"
+        )
+
+        try:
+            esrgan = ESRGAN(model_path, config.DEVICE)
+        except ValueError as e:  # When model type cannot be determined.
+            status(str(e), logger.error)
+            return
+
+    logger.info("Upscaling image...")
+    update_window_title("Upscaling image...")
+    dpg.configure_item("upscale_button", label="Upscaling image...")
+
+    try:
+        upscaled = esrgan.upscale_image(
+            texture_manager.current()[1], dpg.get_value("upscale_amount")
+        )
+    except RuntimeError:
+        logger.error(
+            "Too much memory allocated. Enable tiling to reduce memory usage (not implemented yet)."
+        )
+        dpg.configure_item("upscale_button", label="Upscale Image")
+        update_window_title()
+        return
+
+    logger.success("Finished upscaling.")
+    update_window_title()
+    dpg.configure_item("upscale_button", label="Upscale Image")
+
+    texture_manager.update(upscaled)
+    update_image_widget(*texture_manager.current())
 
 
 # def load_settings_image_callback():
@@ -720,6 +775,18 @@ with dpg.window(tag="window"):
         parent=dpg.add_tooltip("seed"),
     )
 
+    dpg.add_input_int(
+        label="Upscale Amount",
+        default_value=int(user_settings["upscale_amount"]),
+        min_value=1,
+        width=config.ITEM_WIDTH,
+        tag="upscale_amount",
+    )
+    dpg.add_text(
+        "The amount to upscale the image.",
+        parent=dpg.add_tooltip("upscale_amount"),
+    )
+
     # file dialog to be used
     # with dpg.group(horizontal=True):
     #     btn = dpg.add_button(label="Choose...")
@@ -851,20 +918,34 @@ with dpg.window(tag="window"):
             callback=save_model_callback,
         )
 
+    dpg.add_button(label="Generate Image", callback=generate_image_callback)
+
     with dpg.group(horizontal=True):
-        dpg.add_button(label="Generate Image", callback=generate_image_callback)
         dpg.add_button(
             label="Interrupt Generation",
             callback=interrupt_callback,
             show=False,
             tag="interrupt_btn",
         )
+        # dpg.add_button(
+        #     label="Kill Generation",
+        #     callback=kill_gen_callback,
+        #     show=False,
+        #     tag="kill_gen_btn",
+        # )
 
     # change tag name to smth better
     with dpg.group(tag="output_button_group", show=False):
-        dpg.add_button(
-            label="Save Image", tag="save_button", callback=save_image_callback
-        )
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Upscale Image",
+                tag="upscale_button",
+                callback=upscale_image_callback,
+            )
+            dpg.add_button(
+                label="Save Image", tag="save_button", callback=save_image_callback
+            )
+
         dpg.add_button(
             label="Use In Img2Img",
             tag="use_in_img2img_btn",

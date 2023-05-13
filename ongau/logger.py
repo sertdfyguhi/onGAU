@@ -26,7 +26,7 @@ def warn(msg: str):
 
 def success(msg: str):
     """Logs a success message."""
-    print(create(msg, [SUCCESS]))
+    print(create(msg, [SUCCESS, BOLD]))
 
 
 def info(msg: str):

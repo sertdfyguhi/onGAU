@@ -15,6 +15,9 @@ EMBEDDING_MODELS = []
 # Array of paths to lora files to use. format: [(path, weight)]
 LORAS = []
 
+# Path to ESRGAN model.
+ESRGAN_MODEL = ""
+
 # Path to the .ini file to save user settings.
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
 
@@ -28,6 +31,7 @@ DEFAULT_IMAGE_AMOUNT = 1
 DEFAULT_SEED = ""
 DEFAULT_WIDTH = 512  # image width
 DEFAULT_HEIGHT = 512  # image height
+DEFAULT_UPSCALE_AMOUNT = 4
 DEFAULT_PIPELINE = "Text2Img"
 # Use long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.16.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
 DEFAULT_LPWSD_PIPELINE = True

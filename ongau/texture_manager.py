@@ -62,12 +62,28 @@ class TextureManager:
         """Returns the current image."""
         return self._textures[self._image_index], self._images[self._image_index]
 
+    def update(self, new: GeneratedImage, index: int = -1):
+        """Update an image using the index of it in the images list."""
+        if index < 0:
+            index = self._image_index
+
+        self._images[index] = new
+
+        dpg.delete_item(self._textures[index])
+
+        self._textures[index] = dpg.add_static_texture(
+            width=new.width,
+            height=new.height,
+            default_value=_convert_PIL_to_DPG_image(new.image),
+            parent=self._texture_reg,
+        )
+
     def clear(self):
         """Clear and delete all images and textures from the manager."""
         for tag in self._textures:
             dpg.delete_item(tag)
 
-        self._images = None
+        self._images = []
         self._textures = []
         self._image_index = 0
 

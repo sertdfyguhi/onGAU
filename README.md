@@ -44,6 +44,8 @@ python3 onGAU/main.py
 - [x] Add tooltips
 - [ ] Change embedding models and loras in app
 - [ ] Add super resolution (ESRGAN/SwinIR) support
+  - [x] Add ESRGAN support
+  - [ ] Add SwinIR support
 - [x] Create an install script to easily install UI
 - [x] Interrupt generation process
 - [ ] Compile code into cross platform executable
