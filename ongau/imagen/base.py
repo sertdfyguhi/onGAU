@@ -21,6 +21,7 @@ class GeneratedImage:
     pipeline: DiffusionPipeline
     scheduler: SchedulerMixin
     karras_sigmas_used: bool
+    compel_weighting: bool
     clip_skip: int
     loras: list[str]
     embeddings: list[str]
@@ -40,6 +41,7 @@ class GeneratedLatents:
     pipeline: DiffusionPipeline
     scheduler: SchedulerMixin
     karras_sigmas_used: bool
+    compel_weighting: bool
     clip_skip: int
     loras: list[str]
     embeddings: list[str]
@@ -209,12 +211,11 @@ class BaseImagen:
 
         if scheduler:
             self.set_scheduler(scheduler)  # might implement karras sigmas to this
-        else:
-            if orig_scheduler:
-                self.set_scheduler(
-                    orig_scheduler,
-                    self._karras_sigmas_used,
-                )
+        elif orig_scheduler:
+            self.set_scheduler(
+                orig_scheduler,
+                self._karras_sigmas_used,
+            )
 
         self._scheduler = self._pipeline.scheduler.__class__
 
@@ -258,6 +259,9 @@ class BaseImagen:
 
     def load_embedding_model(self, embedding_model_path: str):
         """Load a textual inversion model."""
+        if embedding_model_path in self._embedding_models_loaded:
+            return
+
         try:
             self._pipeline.load_textual_inversion(
                 embedding_model_path,
@@ -285,6 +289,9 @@ class BaseImagen:
 
     def load_lora(self, lora_path: str, weight: float = 0.75):
         """Load a .safetensors lora."""
+        if lora_path in [l[0] for l in self._loras_loaded]:
+            return
+
         self._pipeline = utils.load_lora(
             self._pipeline,
             lora_path,

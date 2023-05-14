@@ -51,11 +51,11 @@ def load_lora(
 
         if "text" in key:
             layer_infos = (
-                key.split(".")[0].split(LORA_PREFIX_TEXT_ENCODER + "_")[-1].split("_")
+                key.split(".")[0].split(f"{LORA_PREFIX_TEXT_ENCODER}_")[-1].split("_")
             )
             curr_layer = pipeline.text_encoder
         else:
-            layer_infos = key.split(".")[0].split(LORA_PREFIX_UNET + "_")[-1].split("_")
+            layer_infos = key.split(".")[0].split(f"{LORA_PREFIX_UNET}_")[-1].split("_")
             curr_layer = pipeline.unet
 
         # find the target layer
@@ -69,18 +69,15 @@ def load_lora(
                     break
             except Exception:
                 if len(temp_name) > 0:
-                    temp_name += "_" + layer_infos.pop(0)
+                    temp_name += f"_{layer_infos.pop(0)}"
                 else:
                     temp_name = layer_infos.pop(0)
 
         pair_keys = []
         if "lora_down" in key:
-            pair_keys.append(key.replace("lora_down", "lora_up"))
-            pair_keys.append(key)
+            pair_keys.extend((key.replace("lora_down", "lora_up"), key))
         else:
-            pair_keys.append(key)
-            pair_keys.append(key.replace("lora_up", "lora_down"))
-
+            pair_keys.extend((key, key.replace("lora_up", "lora_down")))
         # update weight
         if len(state_dict[pair_keys[0]].shape) == 4:
             weight_up = state_dict[pair_keys[0]].squeeze(3).squeeze(2).to(torch.float32)
@@ -96,7 +93,6 @@ def load_lora(
             curr_layer.weight.data += alpha * torch.mm(weight_up, weight_down)
 
         # update visited list
-        for item in pair_keys:
-            visited.append(item)
+        visited.extend(iter(pair_keys))
 
     return pipeline.to(device)

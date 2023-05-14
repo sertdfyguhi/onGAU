@@ -11,7 +11,7 @@ import os
 
 
 @dataclass
-class UpscaledImage:
+class ESRGANUpscaledImage:
     model: str
     upscale_amount: int
     width: int
@@ -111,13 +111,13 @@ class ESRGAN:
 
     def upscale_image(
         self, generated_image: GeneratedImage, upscale: int
-    ) -> UpscaledImage:
+    ) -> ESRGANUpscaledImage:
         """Upscale a GeneratedImage object using ESRGAN."""
         cv2_image = _convert_PIL_to_cv2(generated_image.image)
         output, _ = self._esrgan.enhance(cv2_image, outscale=upscale)
         height, width, _ = output.shape
 
-        return UpscaledImage(
+        return ESRGANUpscaledImage(
             model=self._model,
             upscale_amount=upscale,
             width=width,

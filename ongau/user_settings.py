@@ -14,25 +14,27 @@ class UserSettings:
         self._config.read(settings_file)
 
     def get_user_settings(self):
-        user_settings = {}
-
-        for op in [
-            "model",
-            "prompt",
-            "negative_prompt",
-            "seed",
-            "pipeline",
-            "guidance_scale",
-            "step_count",
-            "upscale_amount",
-            "image_amount",
-            "width",
-            "height",
-            "lpwsd_pipeline",
-        ]:
-            user_settings[op] = self._config.get(
-                "user_settings", op, fallback=getattr(config, "DEFAULT_" + op.upper())
+        user_settings = {
+            op: self._config.get(
+                "user_settings",
+                op,
+                fallback=getattr(config, f"DEFAULT_{op.upper()}"),
             )
+            for op in [
+                "model",
+                "prompt",
+                "negative_prompt",
+                "seed",
+                "pipeline",
+                "guidance_scale",
+                "step_count",
+                "upscale_amount",
+                "image_amount",
+                "width",
+                "height",
+                "lpwsd_pipeline",
+            ]
+        }
 
         for op in [
             "scheduler",

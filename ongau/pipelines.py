@@ -18,7 +18,6 @@ def _generate(func, callback, **kwargs):
 
     # Create and start the generation thread.
     thread = Thread(target=worker)
-    print("starting thread")
     thread.start()
 
 

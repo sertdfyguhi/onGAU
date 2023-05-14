@@ -3,6 +3,7 @@ from texture_manager import TextureManager
 from user_settings import UserSettings
 import logger, config, pipelines
 
+from PIL import Image, UnidentifiedImageError
 from diffusers import schedulers
 import dearpygui.dearpygui as dpg
 import imagesize
@@ -11,6 +12,7 @@ import utils
 import torch
 import time
 import os
+import re
 
 # Constants
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
@@ -60,13 +62,14 @@ if scheduler := user_settings["scheduler"]:
     else:
         imagen.set_scheduler(getattr(schedulers, scheduler))
 
-if user_settings["attention_slicing"] != None:
-    if user_settings["attention_slicing"] == "True":
-        imagen.enable_attention_slicing()
-else:
-    # Attention slicing boosts performance on Apple Silicon.
-    if imagen.device == "mps":
-        imagen.enable_attention_slicing()
+if (
+    user_settings["attention_slicing"] is not None
+    and user_settings["attention_slicing"] == "True"
+    or user_settings["attention_slicing"] is None
+    and imagen.device
+    == "mps"  # Attention Slicing has performance boosts on apple silicon
+):
+    imagen.enable_attention_slicing()
 
 if user_settings["compel_weighting"] == "True":
     if imagen.lpw_stable_diffusion_used:
@@ -81,7 +84,7 @@ for op in [
     "xformers_memory_attention",
 ]:
     if user_settings[op] == "True":
-        getattr(imagen, "enable_" + op)()
+        getattr(imagen, f"enable_{op}")()
 
 # Load embedding models.
 for path in config.EMBEDDING_MODELS:
@@ -184,7 +187,7 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
         (
             # subtraction to account for position change
             dpg.get_viewport_width() - 460,
-            dpg.get_viewport_height() - 42,  # subtraction to account for margin
+            dpg.get_viewport_height() - 60,  # subtraction to account for margin
         ),
     )
 
@@ -243,6 +246,29 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
     )
 
 
+def load_model(model_path: str):
+    """Loads a new model."""
+    status(f"Loading {model_path}...")
+    update_window_title(f"Loading {model_path}...")
+
+    try:
+        imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
+    except (
+        RuntimeError,
+        FileNotFoundError,
+    ) as e:  # When compel prompt weighting is enabled / model is not found.
+        status(str(e), logger.error)
+        update_window_title()
+        return
+    except ValueError as e:  # When LPWSD pipeline is enabled.
+        logger.warn(str(e))
+        dpg.set_value("lpwsd_pipeline", False)
+        imagen.set_model(model_path, False)
+
+    dpg.hide_item("status_text")
+    update_window_title()
+
+
 def generate_image_callback():
     """Callback to generate a new image."""
     texture_manager.clear()  # save memory
@@ -252,25 +278,7 @@ def generate_image_callback():
         dpg.get_value("model"), FILE_DIR, "models/"
     )
     if model_path != imagen.model:
-        status(f"Loading {model_path}...")
-        update_window_title(f"Loading {model_path}...")
-
-        try:
-            imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
-        except (
-            RuntimeError,
-            FileNotFoundError,
-        ) as e:  # When compel prompt weighting is enabled / model is not found.
-            status(str(e), logger.error)
-            update_window_title()
-            return
-        except ValueError as e:  # When LPWSD pipeline is enabled.
-            logger.warn(str(e))
-            dpg.set_value("lpwsd_pipeline", False)
-            imagen.set_model(model_path, False)
-
-        dpg.hide_item("status_text")
-        update_window_title()
+        load_model(model_path)
 
     scheduler = dpg.get_value("scheduler")
 
@@ -331,7 +339,7 @@ def generate_image_callback():
 
         logger.success(f"Finished generating image{plural}.")
 
-        average_step_time = total_time / sum([image.step_count for image in images])
+        average_step_time = total_time / sum(image.step_count for image in images)
 
         logger.info(
             f"""Seed{plural}: {', '.join([str(image.seed) for image in images])}
@@ -626,9 +634,107 @@ def upscale_image_callback():
     update_image_widget(*texture_manager.current())
 
 
-# def load_settings_image_callback():
-#     """Callback to load generation settings from an inputted onGAU generated image file."""
-#     pass
+def load_from_image_callback():
+    """Callback to load generation settings from an inputted onGAU generated image file."""
+    image_path = dpg.get_value("image_path_input")
+    try:
+        image = Image.open(image_path)
+    except UnidentifiedImageError:
+        status("Image does not exist.", logger.error)
+        return
+
+    settings = image.info
+    dpg.set_value("width", image.size[0])
+    dpg.set_value("height", image.size[1])
+
+    dpg.hide_item("image_load_dialog")
+    dpg.hide_item("status_text")
+
+    for setting in settings:
+        if dpg.does_item_exist(setting):
+            if setting == "model" and settings[setting] != imagen.model:
+                load_model(settings[setting])
+                dpg.set_value("model", settings[setting])
+            elif setting == "scheduler":
+                scheduler = settings[setting]
+
+                if scheduler != imagen.scheduler.__name__ + (
+                    " Karras" if imagen.karras_sigmas_used else ""
+                ):
+                    logger.info(f"Loading scheduler {scheduler}...")
+
+                    use_karras = scheduler.endswith("Karras")
+                    imagen.set_scheduler(
+                        getattr(
+                            schedulers, scheduler[:-7] if use_karras else scheduler
+                        ),
+                        use_karras,
+                    )
+
+                    dpg.set_value(setting, scheduler)
+            elif setting == "pipeline":
+                # Convert pipeline class into imagen class.
+                match settings[setting]:
+                    case "StableDiffusionPipeline":
+                        change_pipeline_callback(None, "Text2Img")
+                        dpg.set_value(setting, "Text2Img")
+
+                    case "StableDiffusionLongPromptWeightingPipeline":
+                        # Force LPWSD pipeline without loading.
+                        imagen._lpw_stable_diffusion_used = True
+                        change_pipeline_callback(None, "Text2Img")
+                        dpg.set_value(setting, "Text2Img")
+                        dpg.set_value("lpwsd_pipeline", True)
+
+                    case "StableDiffusionImg2ImgPipeline":
+                        change_pipeline_callback(None, "SDImg2Img")
+                        dpg.set_value(setting, "SDImg2Img")
+
+                    case _:
+                        logger.error("Pipeline could not be understood.")
+            elif setting == "loras":
+                # Split reformatted lora string.
+                loras = [
+                    (
+                        re.sub("\\(?=[,;])", "", lora.split(",")[0]),
+                        float(lora.split(",")[1]),
+                    )
+                    for lora in settings[setting].split(";")
+                ]
+
+                for lora in loras:
+                    imagen.load_lora(lora)
+            elif setting == "embeddings":
+                # Split reformatted embedding string.
+                embeddings = [
+                    re.sub("\\(?=[,;])", "", value)
+                    for value in settings[setting].split(";")
+                ]
+
+                for embedding in embeddings:
+                    imagen.load_embedding_model(embedding)
+            elif setting == "clip_skip":
+                cs = int(settings[setting])
+
+                imagen.set_clip_skip_amount(cs)
+                dpg.set_value(setting, cs)
+            else:
+                widget_type = dpg.get_item_type(setting)
+
+                # Check the type of a widget to determine what type to cast to.
+                if "Int" in widget_type:
+                    dpg.set_value(setting, int(settings[setting]))
+                elif "Float" in widget_type:
+                    dpg.set_value(setting, float(settings[setting]))
+                elif "Checkbox" in widget_type:
+                    enabled = settings[setting] == "True"
+
+                    if enabled:
+                        checkbox_callback(setting, True)
+
+                    dpg.set_value(setting, enabled)
+                else:
+                    dpg.set_value(setting, settings[setting])
 
 
 # Register UI font.
@@ -637,27 +743,45 @@ with dpg.font_registry():
 
 # Register key shortcuts.
 with dpg.handler_registry():
-    dpg.add_key_down_handler(
+    dpg.add_key_press_handler(
         dpg.mvKey_Left, callback=lambda: switch_image_callback("previous")
     )
-    dpg.add_key_down_handler(
+    dpg.add_key_press_handler(
         dpg.mvKey_Right, callback=lambda: switch_image_callback("next")
     )
 
 # Create dialog box for loading settings from an image file.
-# with dpg.window(tag="image_input_dialog", no_title_bar=True, modal=True):
-#     dpg.add_text("Image path.")
-#     dpg.add_input_text(tag="image_input", width=config.ITEM_WIDTH)
-#     with dpg.group(horizontal=True):
-#         dpg.add_button(label="Cancel")
-#         dpg.add_button(label="Ok")
+with dpg.window(
+    label="Load settings from image.",
+    tag="image_load_dialog",
+    pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
+    modal=True,
+):
+    dpg.add_input_text(
+        label="Image Path",
+        tag="image_path_input",
+        width=config.ITEM_WIDTH - config.FONT_SIZE * 5,
+    )
+
+    with dpg.group(horizontal=True):
+        dpg.add_button(
+            label="Load",
+            width=config.ITEM_WIDTH / 2 - 5,
+            callback=load_from_image_callback,
+        )
+        dpg.add_button(
+            label="Cancel",
+            width=config.ITEM_WIDTH / 2 - 5,
+            callback=lambda: dpg.hide_item("image_load_dialog"),
+        )
 
 with dpg.window(tag="window"):
-    # with dpg.menu_bar():
-    #     with dpg.menu(label="File"):
-    #         dpg.add_menu_item(
-    #             label="Load Settings from Image", callback=load_settings_image_callback
-    #         )
+    with dpg.menu_bar():
+        with dpg.menu(label="File"):
+            dpg.add_menu_item(
+                label="Load Settings from Image",
+                callback=lambda: dpg.show_item("image_load_dialog"),
+            )
 
     dpg.add_input_text(
         label="Model",
@@ -832,9 +956,7 @@ with dpg.window(tag="window"):
         dpg.add_combo(
             label="Scheduler",
             items=config.SCHEDULERS,
-            default_value=user_settings["scheduler"]
-            if user_settings["scheduler"]
-            else imagen.scheduler.__name__,
+            default_value=user_settings["scheduler"] or imagen.scheduler.__name__,
             width=config.ITEM_WIDTH,
             tag="scheduler",
         )
@@ -952,12 +1074,6 @@ with dpg.window(tag="window"):
                 label="Save Image", tag="save_button", callback=save_image_callback
             )
 
-        dpg.add_button(
-            label="Use In Img2Img",
-            tag="use_in_img2img_btn",
-            callback=use_in_img2img_callback,
-        )
-
     with dpg.group(horizontal=True, tag="info_group", show=False):
         dpg.add_text(tag="info_text")
         dpg.add_button(
@@ -971,11 +1087,17 @@ with dpg.window(tag="window"):
         overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
     )
 
-    with dpg.group(pos=(460, 7), show=False, tag="output_image_group"):
+    with dpg.group(pos=(460, 27), show=False, tag="output_image_group"):
         with dpg.group(horizontal=True, tag="output_image_selection"):
             dpg.add_button(label="<", tag="previous", callback=switch_image_callback)
             dpg.add_button(label=">", tag="next", callback=switch_image_callback)
             dpg.add_text(tag="output_image_index")
+
+            dpg.add_button(
+                label="Use In Img2Img",
+                tag="use_in_img2img_btn",
+                callback=use_in_img2img_callback,
+            )
 
     dpg.bind_font(default_font)
 

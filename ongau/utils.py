@@ -1,4 +1,4 @@
-from imagen import GeneratedImage, UpscaledImage
+from imagen import GeneratedImage, ESRGANUpscaledImage
 
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL.PngImagePlugin import PngInfo
@@ -48,7 +48,7 @@ def save_image(image_info: GeneratedImage, file_path: str):
 
     info = image_info
 
-    if type(image_info) == UpscaledImage:
+    if type(image_info) == ESRGANUpscaledImage:
         metadata.add_text("upscale_model", image_info.model)
         metadata.add_text("upscale_amount", str(image_info.upscale_amount))
         info = image_info.original_image
@@ -65,17 +65,23 @@ def save_image(image_info: GeneratedImage, file_path: str):
     )
     metadata.add_text("seed", str(info.seed))
     metadata.add_text("clip_skip", str(info.clip_skip))
+    metadata.add_text("compel_weighting", str(info.compel_weighting))
     metadata.add_text(
         "embeddings",
-        ", ".join([embedding.replace(",", "\\,") for embedding in info.embeddings]),
+        ", ".join(
+            [
+                embedding.replace(",", "\\,").replace(";", "\\;")
+                for embedding in info.embeddings
+            ]
+        ),
     )
 
-    BACKSLASH = chr(92)
+    BACKSLASH = "\\"
     metadata.add_text(
         "loras",
         ";".join(
             [
-                f'{lora[0].replace(";", BACKSLASH + ";").replace(",", BACKSLASH + ",")}, {lora[1]}'  # sanitize
+                f'{lora[0].replace(";", f"{BACKSLASH};").replace(",", f"{BACKSLASH},")}, {lora[1]}'  # reformat
                 for lora in info.loras
             ]
         ),
