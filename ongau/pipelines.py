@@ -11,9 +11,18 @@ import os
 def _generate(func, callback, **kwargs):
     logger.info("Starting generation...")
 
+    def worker():
+        try:
+            # TODO: Handle generation errors.
+            images = func(**kwargs)
+        except RuntimeError as e:  #
+            callback(e.args[1], True)
+            return
+
+        callback(images, False)
+
     # Create and start the generation thread.
-    # TODO: Handle generation errors.
-    thread = Thread(target=lambda: callback(func(**kwargs)))
+    thread = Thread(target=worker)
     thread.start()
 
 

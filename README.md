@@ -53,4 +53,4 @@ python3 onGAU/main.py
   - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size
   - [x] Sometimes after changing models inference is extremely slow
-  - [ ] When switching pipelines inference gets extremely slow
+  - [x] When switching pipelines inference gets extremely slow

@@ -61,12 +61,9 @@ if scheduler := user_settings["scheduler"]:
     else:
         imagen.set_scheduler(getattr(schedulers, scheduler))
 
-if (
-    user_settings["attention_slicing"] is not None
-    and user_settings["attention_slicing"] == "True"
-    or user_settings["attention_slicing"] is None
-    and imagen.device == "mps"  # Attention Slicing boosts performance on apple silicon
-):
+if (user_settings["attention_slicing"] == "True") or (
+    user_settings["attention_slicing"] is None and imagen.device == "mps"
+):  # Attention Slicing boosts performance on apple silicon
     imagen.enable_attention_slicing()
 
 if user_settings["compel_weighting"] == "True":
@@ -111,10 +108,10 @@ dpg.create_viewport(
 
 texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
-esrgan = None
 
 base_image_aspect_ratio = None
 last_step_latents = None
+esrgan = None
 
 # 0 is for generating
 # 1 is interrupt called
@@ -223,12 +220,13 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
 
         # If exit generation is called.
         if gen_status == 3:
-            raise RuntimeError("Generation exited.")
+            raise RuntimeError("Generation exited.", texture_manager.images)
 
         gen_status = 0
 
     last_step_latents = latents
 
+    # Calculate the percentage
     progress = step / step_count
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
 
@@ -276,7 +274,7 @@ def generate_image_callback():
         dpg.get_value("model"), FILE_DIR, "models/"
     )
     if model_path != imagen.model and load_model(model_path):
-            return
+        return
 
     scheduler = dpg.get_value("scheduler")
 
@@ -299,7 +297,7 @@ def generate_image_callback():
         except ValueError as e:
             logger.error(str(e))
 
-    dpg.show_item("interrupt_btn")
+    dpg.show_item("gen_status_group")
     dpg.show_item("progress_bar")
     dpg.hide_item("info_group")
     dpg.hide_item("output_button_group")
@@ -318,7 +316,7 @@ def generate_image_callback():
     start_time = time.time()
 
     # Callback to run after generation thread finishes generation.
-    def finish_generation_callback(images: list):
+    def finish_generation_callback(images: list, killed: bool = False):
         if not images:
             return
 
@@ -352,11 +350,14 @@ Average step time: {average_step_time:.1f}s
 Total time: {total_time:.1f}s""",
         )
 
-        # Prepare the images to be shown in UI.
-        texture_manager.prepare(images)
+        if not killed:
+            # Prepare the images to be shown in UI.
+            texture_manager.prepare(images)
+            update_image_widget(*texture_manager.current())
+        else:
+            logger.success("Generation killed.")
 
         update_window_title()
-        update_image_widget(*texture_manager.current())
 
         # Reset progress bar..
         dpg.set_value("progress_bar", 0.0)
@@ -365,7 +366,7 @@ Total time: {total_time:.1f}s""",
         # Show image index counter.
         dpg.set_value("output_image_index", texture_manager.to_counter_string())
 
-        dpg.hide_item("interrupt_btn")
+        dpg.hide_item("gen_status_group")
         dpg.hide_item("progress_bar")
         dpg.show_item("info_group")
         dpg.show_item("output_button_group")
@@ -733,3 +734,15 @@ def load_from_image_callback():
                     dpg.set_value(setting, enabled)
                 else:
                     dpg.set_value(setting, settings[setting])
+
+
+def kill_gen_callback():
+    """Callback to kill the generation process."""
+    global gen_status
+
+    # Interrupt generation first
+    interrupt_callback()
+    dpg.configure_item("interrupt_btn", label="Interrupt Generation")
+
+    # Set generation status to kill
+    gen_status = 3

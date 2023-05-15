@@ -316,19 +316,17 @@ with dpg.window(tag="window"):
         label="Generate Image", tag="generate_btn", callback=generate_image_callback
     )
 
-    with dpg.group(horizontal=True):
+    with dpg.group(tag="gen_status_group", horizontal=True, show=False):
         dpg.add_button(
             label="Interrupt Generation",
             callback=interrupt_callback,
-            show=False,
             tag="interrupt_btn",
         )
-        # dpg.add_button(
-        #     label="Kill Generation",
-        #     callback=kill_gen_callback,
-        #     show=False,
-        #     tag="kill_gen_btn",
-        # )
+        dpg.add_button(
+            label="Kill Generation",
+            callback=kill_gen_callback,
+            tag="kill_gen_btn",
+        )
 
     # change tag name to smth better
     with dpg.group(tag="output_button_group", show=False):
