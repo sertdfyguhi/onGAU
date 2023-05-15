@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from PIL import Image
 import numpy as np
 import torch
-import cv2
 import os
+import gc
 
 
 @dataclass
@@ -21,12 +21,8 @@ class ESRGANUpscaledImage:
     original_image: GeneratedImage
 
 
-def _convert_cv2_to_PIL(cv2_image: cv2.Mat):
-    return Image.fromarray(cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB))
-
-
-def _convert_PIL_to_cv2(pil_image: Image.Image):
-    return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+def _convert_cv2_to_PIL(cv2_image):
+    return Image.fromarray(cv2_image)
 
 
 class ESRGAN:
@@ -113,9 +109,12 @@ class ESRGAN:
         self, generated_image: GeneratedImage, upscale: int
     ) -> ESRGANUpscaledImage:
         """Upscale a GeneratedImage object using ESRGAN."""
-        cv2_image = _convert_PIL_to_cv2(generated_image.image)
-        output, _ = self._esrgan.enhance(cv2_image, outscale=upscale)
+        output, _ = self._esrgan.enhance(
+            np.array(generated_image.image), outscale=upscale
+        )
         height, width, _ = output.shape
+
+        gc.collect()
 
         return ESRGANUpscaledImage(
             model=self._model,
@@ -123,6 +122,6 @@ class ESRGAN:
             width=width,
             height=height,
             seed=generated_image.seed,
-            image=_convert_cv2_to_PIL(output).convert("RGBA"),
+            image=_convert_cv2_to_PIL(output),
             original_image=generated_image,
         )

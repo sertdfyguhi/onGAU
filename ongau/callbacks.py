@@ -56,10 +56,10 @@ if user_settings["safety_checker"] == "True":
 
 if scheduler := user_settings["scheduler"]:
     # Check if scheduler is using karras sigmas by checking if it endswith "Karras".
-    if scheduler.endswith("Karras"):
-        imagen.set_scheduler(getattr(schedulers, scheduler[:-7]), True)
-    else:
-        imagen.set_scheduler(getattr(schedulers, scheduler))
+    use_karras = scheduler.endswith("Karras")
+    imagen.set_scheduler(
+        getattr(schedulers, scheduler[:-7] if use_karras else scheduler), use_karras
+    )
 
 if (user_settings["attention_slicing"] == "True") or (
     user_settings["attention_slicing"] is None and imagen.device == "mps"
@@ -160,6 +160,7 @@ def save_model_callback():
     """Callback to save model weights to disk."""
     dpg.set_item_label("save_model", "Saving model..")
     update_window_title("Saving model...")
+    logger.info("Saving model...")
 
     # Generate the path for model weights.
     dir_path = os.path.join(
@@ -170,6 +171,7 @@ def save_model_callback():
     os.mkdir(dir_path)
     imagen.save_weights(dir_path)
 
+    logger.success(f"Saved model at {dir_path}.")
     dpg.set_item_label("save_model", "Save model weights")
     update_window_title()
 
@@ -267,7 +269,7 @@ def load_model(model_path: str):
 
 def generate_image_callback():
     """Callback to generate a new image."""
-    texture_manager.clear()  # save memory
+    texture_manager.clear()  # Save memory by deleting textures.
 
     # Get the path of the model.
     model_path = utils.append_dir_if_startswith(
@@ -336,19 +338,14 @@ def generate_image_callback():
         logger.success(f"Finished generating image{plural}.")
 
         average_step_time = total_time / sum(image.step_count for image in images)
+        info = f"""Average step time: {average_step_time:.1f}s
+Total time: {total_time:.1f}s"""
 
         logger.info(
-            f"""Seed{plural}: {', '.join([str(image.seed) for image in images])}
-Average step time: {average_step_time:.1f}s
-Total time: {total_time:.1f}s"""
+            f"Seed{plural}: {', '.join([str(image.seed) for image in images])}\n{info}"
         )
 
-        dpg.set_value(
-            "info_text",
-            f"""Current Image Seed: {images[0].seed}
-Average step time: {average_step_time:.1f}s
-Total time: {total_time:.1f}s""",
-        )
+        dpg.set_value("info_text", f"Current Image Seed: {images[0].seed}\n{info}")
 
         if not killed:
             # Prepare the images to be shown in UI.
@@ -545,8 +542,7 @@ def interrupt_callback():
 
         logger.info("Generation restarted.")
 
-        # set_value doesn't work for some reason.
-        dpg.configure_item("interrupt_btn", label="Interrupt Generation")
+        dpg.set_item_label("interrupt_btn", "Interrupt Generation")
 
         update_window_title()
         dpg.hide_item("output_button_group")
@@ -570,7 +566,7 @@ def interrupt_callback():
         images = imagen.convert_latent_to_image(last_step_latents)
 
         # set_value doesn't work for some reason.
-        dpg.configure_item("interrupt_btn", label="Continue Generation")
+        dpg.set_item_label("interrupt_btn", "Continue Generation")
 
         texture_manager.prepare(images)
         update_image_widget(*texture_manager.current())
@@ -590,7 +586,7 @@ def upscale_image_callback():
     global esrgan
 
     # Check if it has been defined yet.
-    if config.ESRGAN_MODEL == "":
+    if not config.ESRGAN_MODEL:
         logger.error(
             "ESRGAN model path has not been defined in config.py yet. Link to download the model: https://github.com/xinntao/Real-ESRGAN"
         )
@@ -611,9 +607,10 @@ def upscale_image_callback():
 
     logger.info("Upscaling image...")
     update_window_title("Upscaling image...")
-    dpg.configure_item("upscale_button", label="Upscaling image...")
+    dpg.set_item_label("upscale_button", "Upscaling image...")
 
     try:
+        # PROBLEM IS HERE IDFK
         upscaled = esrgan.upscale_image(
             texture_manager.current()[1], dpg.get_value("upscale_amount")
         )
@@ -621,16 +618,16 @@ def upscale_image_callback():
         logger.error(
             "Too much memory allocated. Enable tiling to reduce memory usage (not implemented yet)."
         )
-        dpg.configure_item("upscale_button", label="Upscale Image")
-        update_window_title()
         return
+    finally:
+        dpg.set_item_label("upscale_button", "Upscale Image")
+        update_window_title()
 
     logger.success("Finished upscaling.")
-    update_window_title()
-    dpg.configure_item("upscale_button", label="Upscale Image")
-
     texture_manager.update(upscaled)
     update_image_widget(*texture_manager.current())
+
+    del upscaled
 
 
 def load_from_image_callback():
@@ -639,7 +636,7 @@ def load_from_image_callback():
     try:
         image = Image.open(image_path)
     except UnidentifiedImageError:
-        status("Image does not exist.", logger.error)
+        status("Image does not exist or could not be read.", logger.error)
         return
 
     settings = image.info
@@ -651,21 +648,22 @@ def load_from_image_callback():
 
     for setting in settings:
         if dpg.does_item_exist(setting):
-            if setting == "model" and settings[setting] != imagen.model:
-                load_model(settings[setting])
-                dpg.set_value("model", settings[setting])
-            elif setting == "scheduler":
-                scheduler = settings[setting]
+            setting_value = settings[setting]
 
-                if scheduler != imagen.scheduler.__name__ + (
+            if setting == "model" and setting_value != imagen.model:
+                load_model(setting_value)
+                dpg.set_value("model", setting_value)
+            elif setting == "scheduler":
+                if setting_value != imagen.scheduler.__name__ + (
                     " Karras" if imagen.karras_sigmas_used else ""
                 ):
-                    logger.info(f"Loading scheduler {scheduler}...")
+                    logger.info(f"Loading scheduler {setting_value}...")
 
-                    use_karras = scheduler.endswith("Karras")
+                    use_karras = setting_value.endswith("Karras")
                     imagen.set_scheduler(
                         getattr(
-                            schedulers, scheduler[:-7] if use_karras else scheduler
+                            schedulers,
+                            setting_value[:-7] if use_karras else setting_value,
                         ),
                         use_karras,
                     )
@@ -673,7 +671,7 @@ def load_from_image_callback():
                     dpg.set_value(setting, scheduler)
             elif setting == "pipeline":
                 # Convert pipeline class into imagen class.
-                match settings[setting]:
+                match setting_value:
                     case "StableDiffusionPipeline":
                         change_pipeline_callback(None, "Text2Img")
                         dpg.set_value(setting, "Text2Img")
@@ -681,6 +679,7 @@ def load_from_image_callback():
                     case "StableDiffusionLongPromptWeightingPipeline":
                         # Force LPWSD pipeline without loading.
                         imagen._lpw_stable_diffusion_used = True
+
                         change_pipeline_callback(None, "Text2Img")
                         dpg.set_value(setting, "Text2Img")
                         dpg.set_value("lpwsd_pipeline", True)
@@ -698,7 +697,7 @@ def load_from_image_callback():
                         re.sub("\\(?=[,;])", "", lora.split(",")[0]),
                         float(lora.split(",")[1]),
                     )
-                    for lora in settings[setting].split(";")
+                    for lora in setting_value.split(";")
                 ]
 
                 for lora in loras:
@@ -707,13 +706,13 @@ def load_from_image_callback():
                 # Split reformatted embedding string.
                 embeddings = [
                     re.sub("\\(?=[,;])", "", value)
-                    for value in settings[setting].split(";")
+                    for value in setting_value.split(";")
                 ]
 
                 for embedding in embeddings:
                     imagen.load_embedding_model(embedding)
             elif setting == "clip_skip":
-                cs = int(settings[setting])
+                cs = int(setting_value)
 
                 imagen.set_clip_skip_amount(cs)
                 dpg.set_value(setting, cs)
@@ -722,18 +721,16 @@ def load_from_image_callback():
 
                 # Check the type of a widget to determine what type to cast to.
                 if "Int" in widget_type:
-                    dpg.set_value(setting, int(settings[setting]))
+                    dpg.set_value(setting, int(setting_value))
                 elif "Float" in widget_type:
-                    dpg.set_value(setting, float(settings[setting]))
+                    dpg.set_value(setting, float(setting_value))
                 elif "Checkbox" in widget_type:
-                    enabled = settings[setting] == "True"
+                    enabled = setting_value == "True"
 
-                    if enabled:
-                        checkbox_callback(setting, True)
-
+                    dpg.get_item_callback(setting)(setting, enabled)
                     dpg.set_value(setting, enabled)
                 else:
-                    dpg.set_value(setting, settings[setting])
+                    dpg.set_value(setting, setting_value)
 
 
 def kill_gen_callback():
@@ -742,7 +739,7 @@ def kill_gen_callback():
 
     # Interrupt generation first
     interrupt_callback()
-    dpg.configure_item("interrupt_btn", label="Interrupt Generation")
+    dpg.set_item_label("interrupt_btn", "Interrupt Generation")
 
     # Set generation status to kill
     gen_status = 3

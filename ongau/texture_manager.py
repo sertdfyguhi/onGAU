@@ -67,6 +67,8 @@ class TextureManager:
         if index < 0:
             index = self._image_index
 
+        del self._images[index].image
+
         self._images[index] = new
 
         dpg.delete_item(self._textures[index])
