@@ -1,5 +1,5 @@
+from configparser import ConfigParser
 import dearpygui.dearpygui as dpg
-import configparser
 import config
 import os
 
@@ -10,7 +10,7 @@ class UserSettings:
             open(settings_file, "w").close()
 
         self._settings_file = settings_file
-        self._config = configparser.ConfigParser()
+        self._config = ConfigParser()
         self._config.read(settings_file)
 
     def get_user_settings(self):

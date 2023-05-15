@@ -11,19 +11,16 @@ import os
 def _generate(func, callback, **kwargs):
     logger.info("Starting generation...")
 
-    def worker():
-        # TODO: Handle generation errors.
-        images = func(**kwargs)
-        callback(images)
-
     # Create and start the generation thread.
-    thread = Thread(target=worker)
+    # TODO: Handle generation errors.
+    thread = Thread(target=lambda: callback(func(**kwargs)))
     thread.start()
 
 
 def _error(error: str):
     logger.error(error)
     dpg.hide_item("progress_bar")
+
     dpg.set_value("status_text", error)
     dpg.show_item("status_text")
 
