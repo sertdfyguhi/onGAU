@@ -1,4 +1,4 @@
-from imagen import Text2Img, SDImg2Img, ESRGAN, GeneratedImage
+from imagen import Text2Img, SDImg2Img, ESRGAN, GeneratedImage, ESRGANUpscaledImage
 from texture_manager import TextureManager
 from user_settings import UserSettings
 import logger, config, pipelines
@@ -12,6 +12,7 @@ import torch
 import time
 import os
 import re
+import gc
 
 # Constants
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
@@ -315,10 +316,10 @@ def generate_image_callback():
 
     dpg.disable_item("generate_btn")
 
-    start_time = time.time()
-
     # Callback to run after generation thread finishes generation.
-    def finish_generation_callback(images: list, killed: bool = False):
+    def finish_generation_callback(
+        images: list, total_time: float, killed: bool = False
+    ):
         if not images:
             return
 
@@ -333,7 +334,6 @@ def generate_image_callback():
 
         # Add an "s" if there are more than 1 image.
         plural = "s" if len(images) > 1 else ""
-        total_time = time.time() - start_time
 
         logger.success(f"Finished generating image{plural}.")
 
@@ -514,10 +514,10 @@ def use_in_img2img_callback():
     file_number = utils.next_file_number(config.SAVE_FILE_PATTERN, file_number)
     file_path = config.SAVE_FILE_PATTERN % file_number
 
+    utils.save_image(texture_manager.current()[1], file_path)
+
     # Add one to account for used file.
     file_number += 1
-
-    utils.save_image(texture_manager.current()[1], file_path)
 
     dpg.set_value("base_image_path", file_path)
 
@@ -609,25 +609,26 @@ def upscale_image_callback():
     update_window_title("Upscaling image...")
     dpg.set_item_label("upscale_button", "Upscaling image...")
 
-    try:
-        # PROBLEM IS HERE IDFK
-        upscaled = esrgan.upscale_image(
-            texture_manager.current()[1], dpg.get_value("upscale_amount")
-        )
-    except RuntimeError:
-        logger.error(
-            "Too much memory allocated. Enable tiling to reduce memory usage (not implemented yet)."
-        )
-        return
-    finally:
+    def callback(upscaled: ESRGANUpscaledImage, error: bool = False):
         dpg.set_item_label("upscale_button", "Upscale Image")
         update_window_title()
 
-    logger.success("Finished upscaling.")
-    texture_manager.update(upscaled)
-    update_image_widget(*texture_manager.current())
+        if error:
+            logger.error(
+                "Too much memory allocated. Enable tiling to reduce memory usage (not implemented yet)."
+            )
+            return
 
-    del upscaled
+        logger.success("Finished upscaling.")
+
+        texture_manager.update(upscaled)
+        update_image_widget(*texture_manager.current())
+
+    # Upscaling causes first step to take extra long.
+    # Putting it in a new thread seems to make it plateau at around 11-12s
+    pipelines.esrgan(
+        esrgan, texture_manager.current()[1], dpg.get_value("upscale_amount"), callback
+    )
 
 
 def load_from_image_callback():

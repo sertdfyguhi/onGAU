@@ -1,9 +1,17 @@
-from imagen import SDImg2Img, Img2ImgGeneratedImage, Text2Img, GeneratedImage
+from imagen import (
+    SDImg2Img,
+    Img2ImgGeneratedImage,
+    Text2Img,
+    GeneratedImage,
+    ESRGAN,
+    ESRGANUpscaledImage,
+)
 import logger
 
 from PIL import UnidentifiedImageError, Image
 from threading import Thread
 import dearpygui.dearpygui as dpg
+import time
 import re
 import os
 
@@ -12,14 +20,16 @@ def _generate(func, callback, **kwargs):
     logger.info("Starting generation...")
 
     def worker():
+        start_time = time.time()
+
         try:
             # TODO: Handle generation errors.
             images = func(**kwargs)
         except RuntimeError as e:  #
-            callback(e.args[1], True)
+            callback(e.args[1], time.time() - start_time, True)
             return
 
-        callback(images, False)
+        callback(images, time.time() - start_time, False)
 
     # Create and start the generation thread.
     thread = Thread(target=worker)
@@ -117,3 +127,17 @@ def img2img(
         image_amount=image_amount,
         progress_callback=progress_callback,
     )
+
+
+def esrgan(imagen: ESRGAN, image: GeneratedImage, upscale: int, callback):
+    def worker():
+        try:
+            upscaled = imagen.upscale_image(image, upscale)
+        except RuntimeError as e:
+            callback(e, True)
+            return
+
+        callback(upscaled, False)
+
+    thread = Thread(target=worker)
+    thread.start()

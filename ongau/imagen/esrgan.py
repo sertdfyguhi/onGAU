@@ -7,7 +7,6 @@ from PIL import Image
 import numpy as np
 import torch
 import os
-import gc
 
 
 @dataclass
@@ -113,8 +112,6 @@ class ESRGAN:
             np.array(generated_image.image), outscale=upscale
         )
         height, width, _ = output.shape
-
-        gc.collect()
 
         return ESRGANUpscaledImage(
             model=self._model,
