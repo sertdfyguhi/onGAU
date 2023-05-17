@@ -12,7 +12,6 @@ import torch
 import time
 import os
 import re
-import gc
 
 # Constants
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
@@ -111,7 +110,7 @@ texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 
 base_image_aspect_ratio = None
-last_step_latents = None
+last_step_latents = []
 esrgan = None
 
 # 0 is for generating
@@ -211,6 +210,9 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
     """Callback to update UI to show generation progress."""
     global last_step_latents, gen_status
 
+    if step == 0:
+        last_step_latents.append(latents)
+
     # Check if generation has been interrupted.
     if gen_status == 1:
         # Status to generation halted.
@@ -227,7 +229,7 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
 
         gen_status = 0
 
-    last_step_latents = latents
+    last_step_latents[-1] = latents
 
     # Calculate the percentage
     progress = step / step_count
@@ -320,6 +322,10 @@ def generate_image_callback():
     def finish_generation_callback(
         images: list, total_time: float, killed: bool = False
     ):
+        global last_step_latents
+
+        last_step_latents = []
+
         if not images:
             return
 
@@ -533,9 +539,6 @@ def interrupt_callback():
     """Callback to interrupt the generation process."""
     global gen_status
 
-    if not last_step_latents:
-        return
-
     if gen_status == 2:
         gen_status = 0
         texture_manager.clear()
@@ -563,7 +566,9 @@ def interrupt_callback():
         update_window_title("Decoding latents...")
 
         # Convert GeneratedLatents object into a GeneratedImage object to be compatible with other code.
-        images = imagen.convert_latent_to_image(last_step_latents)
+        images = [
+            imagen.convert_latent_to_image(latent)[0] for latent in last_step_latents
+        ]
 
         # set_value doesn't work for some reason.
         dpg.set_item_label("interrupt_btn", "Continue Generation")
@@ -702,7 +707,7 @@ def load_from_image_callback():
                 ]
 
                 for lora in loras:
-                    imagen.load_lora(lora)
+                    imagen.load_lora(*lora)
             elif setting == "embeddings":
                 # Split reformatted embedding string.
                 embeddings = [

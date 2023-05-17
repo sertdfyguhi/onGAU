@@ -1,4 +1,5 @@
 from safetensors.torch import load_file as _load_file
+from collections import defaultdict
 import torch
 
 
@@ -25,37 +26,35 @@ def create_torch_generator(
     return generators, seeds
 
 
-# https://github.com/huggingface/diffusers/blob/main/scripts/convert_lora_safetensor_to_diffusers.py
+# https://github.com/huggingface/diffusers/issues/3064
 # This implementation does break sometimes.
 def load_lora(
     pipeline,
     lora_path: str,
     device: str,
-    alpha: float = 0.75,
-    LORA_PREFIX_TEXT_ENCODER: str = "lora_te",
-    LORA_PREFIX_UNET: str = "lora_unet",
+    weight: float = 0.75,
+    dtype: torch.dtype = torch.float32,
 ):
+    LORA_PREFIX_UNET = "lora_unet"
+    LORA_PREFIX_TEXT_ENCODER = "lora_te"
     # load LoRA weight from .safetensors
-    state_dict = _load_file(lora_path, device)
+    state_dict = _load_file(lora_path, device=device)
 
-    visited = []
-
-    # directly update weight in diffusers model
-    for key in state_dict:
+    updates = defaultdict(dict)
+    for key, value in state_dict.items():
         # it is suggested to print out the key, it usually will be something like below
         # "lora_te_text_model_encoder_layers_0_self_attn_k_proj.lora_down.weight"
 
-        # as we have set the alpha beforehand, so just skip
-        if ".alpha" in key or key in visited:
-            continue
+        layer, elem = key.split(".", 1)
+        updates[layer][elem] = value
 
-        if "text" in key:
-            layer_infos = (
-                key.split(".")[0].split(f"{LORA_PREFIX_TEXT_ENCODER}_")[-1].split("_")
-            )
+    # directly update weight in diffusers model
+    for layer, elems in updates.items():
+        if "text" in layer:
+            layer_infos = layer.split(f"{LORA_PREFIX_TEXT_ENCODER}_")[-1].split("_")
             curr_layer = pipeline.text_encoder
         else:
-            layer_infos = key.split(".")[0].split(f"{LORA_PREFIX_UNET}_")[-1].split("_")
+            layer_infos = layer.split(f"{LORA_PREFIX_UNET}_")[-1].split("_")
             curr_layer = pipeline.unet
 
         # find the target layer
@@ -73,26 +72,22 @@ def load_lora(
                 else:
                     temp_name = layer_infos.pop(0)
 
-        pair_keys = []
-        if "lora_down" in key:
-            pair_keys.extend((key.replace("lora_down", "lora_up"), key))
-        else:
-            pair_keys.extend((key, key.replace("lora_up", "lora_down")))
+        # get elements for this layer
+        weight_up = elems["lora_up.weight"].to(dtype)
+        weight_down = elems["lora_down.weight"].to(dtype)
+        alpha = elems["alpha"].item() / weight_up.shape[1] if elems["alpha"] else 1.0
         # update weight
-        if len(state_dict[pair_keys[0]].shape) == 4:
-            weight_up = state_dict[pair_keys[0]].squeeze(3).squeeze(2).to(torch.float32)
-            weight_down = (
-                state_dict[pair_keys[1]].squeeze(3).squeeze(2).to(torch.float32)
+        if len(weight_up.shape) == 4:
+            curr_layer.weight.data += (
+                weight
+                * alpha
+                * torch.mm(
+                    weight_up.squeeze(3).squeeze(2), weight_down.squeeze(3).squeeze(2)
+                )
+                .unsqueeze(2)
+                .unsqueeze(3)
             )
-            curr_layer.weight.data += alpha * torch.mm(
-                weight_up, weight_down
-            ).unsqueeze(2).unsqueeze(3)
         else:
-            weight_up = state_dict[pair_keys[0]].to(torch.float32)
-            weight_down = state_dict[pair_keys[1]].to(torch.float32)
-            curr_layer.weight.data += alpha * torch.mm(weight_up, weight_down)
+            curr_layer.weight.data += weight * alpha * torch.mm(weight_up, weight_down)
 
-        # update visited list
-        visited.extend(iter(pair_keys))
-
-    return pipeline.to(device)
+    return pipeline

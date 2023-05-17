@@ -205,8 +205,6 @@ class BaseImagen:
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
-        self.set_device(self._device)
-
         self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
         if scheduler:
@@ -251,7 +249,7 @@ class BaseImagen:
         for lora in self._loras_loaded:
             self.load_lora(*lora)
 
-        self._pipeline.to(self._device)
+        self.set_device(self._device)
 
     def load_lpw_stable_diffusion(self):
         """Load Long Prompt Weighting Stable Diffusion pipeline."""
@@ -313,6 +311,7 @@ class BaseImagen:
         self._device = device
         self._pipeline = self._pipeline.to(device)
 
+    # TODO: Add DPM++ SDE Karras after diffusers updates.
     def set_scheduler(self, scheduler: SchedulerMixin, use_karras_sigmas: bool = False):
         """Change scheduler of pipeline."""
         if (
