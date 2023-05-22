@@ -4,7 +4,7 @@ import config
 import os
 
 
-class UserSettings:
+class SettingsManager:
     def __init__(self, settings_file: str):
         if not os.path.isfile(settings_file):
             open(settings_file, "w").close()
@@ -13,10 +13,27 @@ class UserSettings:
         self._config = ConfigParser()
         self._config.read(settings_file)
 
-    def get_user_settings(self):
-        user_settings = {
+        # Backwards compatibility
+        if self._config.has_section("user_settings"):
+            # Rename "user_settings" section to "main" section.
+            # self._config["main"] = self._config.pop("user_settings")
+            self._config["main"] = self._config["user_settings"]
+            self._config.remove_section("user_settings")
+
+    @property
+    def settings(self):
+        return [key for key in self._config.keys() if key not in ["DEFAULT", "main"]]
+
+    def delete_settings(self, section: str):
+        self._config.remove_section(section)
+
+    def get_settings(self, section: str, full: bool = False):
+        if full:
+            return self._config[section]
+
+        settings = {
             op: self._config.get(
-                "user_settings",
+                section,
                 op,
                 fallback=getattr(config, f"DEFAULT_{op.upper()}"),
             )
@@ -43,25 +60,23 @@ class UserSettings:
             "xformers_memory_attention",
             "compel_weighting",
         ]:
-            user_settings[op] = self._config.get("user_settings", op, fallback=None)
+            settings[op] = self._config.get(section, op, fallback=None)
 
-        user_settings["safety_checker"] = self._config.get(
-            "user_settings", "safety_checker", fallback="True"
+        settings["safety_checker"] = self._config.get(
+            section, "safety_checker", fallback="True"
         )
 
-        user_settings["base_image_path"] = self._config.get(
-            "user_settings", "base_image_path", fallback=""
+        settings["base_image_path"] = self._config.get(
+            section, "base_image_path", fallback=""
         )
 
-        user_settings["clip_skip"] = self._config.get(
-            "user_settings", "clip_skip", fallback=0
-        )
+        settings["clip_skip"] = self._config.get(section, "clip_skip", fallback=0)
 
-        return user_settings
+        return settings
 
-    def save_user_settings(self):
-        if not self._config.has_section("user_settings"):
-            self._config.add_section("user_settings")
+    def save_settings(self, section: str, ignore_keys: list = []):
+        if not self._config.has_section(section):
+            self._config.add_section(section)
 
         # options that dont need to be converted to strings
         for op in [
@@ -74,7 +89,7 @@ class UserSettings:
             "base_image_path",
         ]:
             # print(op, dpg.get_value(op))
-            self._config.set("user_settings", op, dpg.get_value(op))
+            self._config[section][op] = dpg.get_value(op)
 
         # options that do need to be converted to a string
         for op in [
@@ -92,11 +107,10 @@ class UserSettings:
             "compel_weighting",
             "lpwsd_pipeline",
         ]:
-            self._config.set(
-                "user_settings",
-                op,
-                str(dpg.get_value(op)),
-            )
+            self._config[section][op] = str(dpg.get_value(op))
+
+        for key in ignore_keys:
+            del self._config[section][key]
 
         with open(self._settings_file, "w") as config_file:
             self._config.write(config_file)

@@ -1,6 +1,6 @@
 from imagen import Text2Img, SDImg2Img, ESRGAN, GeneratedImage, ESRGANUpscaledImage
+from settings_manager import SettingsManager
 from texture_manager import TextureManager
-from user_settings import UserSettings
 import logger, config, pipelines
 
 from PIL import Image, UnidentifiedImageError
@@ -13,6 +13,8 @@ import time
 import os
 import re
 
+dpg.create_context()
+
 # Constants
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
@@ -23,9 +25,18 @@ print(
     )
 )
 
+
+def load_scheduler(scheduler: str):
+    """Load a scheduler."""
+    use_karras = scheduler.endswith("Karras")
+    imagen.set_scheduler(
+        getattr(schedulers, scheduler[:-7] if use_karras else scheduler), use_karras
+    )
+
+
 # load user settings
-settings_manager = UserSettings(config.USER_SETTINGS_FILE)
-user_settings = settings_manager.get_user_settings()
+settings_manager = SettingsManager(config.USER_SETTINGS_FILE)
+user_settings = settings_manager.get_settings("main")
 
 use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
@@ -55,11 +66,7 @@ if user_settings["safety_checker"] == "True":
     imagen.disable_safety_checker()
 
 if scheduler := user_settings["scheduler"]:
-    # Check if scheduler is using karras sigmas by checking if it endswith "Karras".
-    use_karras = scheduler.endswith("Karras")
-    imagen.set_scheduler(
-        getattr(schedulers, scheduler[:-7] if use_karras else scheduler), use_karras
-    )
+    load_scheduler(scheduler)
 
 if (user_settings["attention_slicing"] == "True") or (
     user_settings["attention_slicing"] is None and imagen.device == "mps"
@@ -101,15 +108,11 @@ for path, weight in config.LORAS:
     except OSError as e:
         logger.error(f"Lora {lora_path} does not exist, skipping.")
 
-dpg.create_context()
-dpg.create_viewport(
-    title=config.WINDOW_TITLE, width=config.WINDOW_SIZE[0], height=config.WINDOW_SIZE[1]
-)
-
 texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 
 base_image_aspect_ratio = None
+saves_tags = {}
 last_step_latents = []
 esrgan = None
 
@@ -183,7 +186,7 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
         (image.width, image.height),
         (
             # subtraction to account for position change
-            dpg.get_viewport_width() - 460,
+            dpg.get_viewport_width() - 440 - 7,
             dpg.get_viewport_height() - 60,  # subtraction to account for margin
         ),
     )
@@ -288,12 +291,7 @@ def generate_image_callback():
         " Karras" if imagen.karras_sigmas_used else ""
     ):
         logger.info(f"Loading scheduler {scheduler}...")
-
-        use_karras = scheduler.endswith("Karras")
-        imagen.set_scheduler(
-            getattr(schedulers, scheduler[:-7] if use_karras else scheduler),
-            use_karras,
-        )
+        load_scheduler(scheduler)
 
     clip_skip = dpg.get_value("clip_skip")
     if clip_skip != imagen.clip_skip_amount:
@@ -318,10 +316,10 @@ def generate_image_callback():
 
     dpg.disable_item("generate_btn")
 
-    # Callback to run after generation thread finishes generation.
     def finish_generation_callback(
         images: list, total_time: float, killed: bool = False
     ):
+        """Callback to run after generation thread finishes generation."""
         global last_step_latents
 
         last_step_latents = []
@@ -343,7 +341,7 @@ def generate_image_callback():
 
         logger.success(f"Finished generating image{plural}.")
 
-        average_step_time = total_time / sum(image.step_count for image in images)
+        average_step_time = total_time / (images[0].step_count * len(images))
         info = f"""Average step time: {average_step_time:.1f}s
 Total time: {total_time:.1f}s"""
 
@@ -414,8 +412,10 @@ def checkbox_callback(tag: str, value: bool):
 def toggle_xformers_callback(_, value: bool):
     """Callback to toggle xformers."""
     if not torch.cuda.is_available():
-        dpg.set_value("xformers_memory_attention", False)
-        status("Xformers is only available for cuda.", logger.error)
+        if value:
+            dpg.set_value("xformers_memory_attention", False)
+            status("Xformers is only available for cuda.", logger.error)
+
         return
 
     try:
@@ -636,6 +636,98 @@ def upscale_image_callback():
     )
 
 
+def load_settings(settings: dict):
+    """Load settings from a dictionary."""
+    for setting, value in settings.items():
+        if not dpg.does_item_exist(setting):
+            continue
+
+        if setting == "model" and value != imagen.model:
+            load_model(value)
+            dpg.set_value("model", value)
+        elif setting == "scheduler" and value != imagen.scheduler.__name__ + (
+            " Karras" if imagen.karras_sigmas_used else ""
+        ):
+            logger.info(f"Loading scheduler {value}...")
+            load_scheduler(value)
+            dpg.set_value(setting, value)
+        elif setting == "pipeline":
+            use_LPWSD = settings["lpwsd_pipeline"] == "True"
+
+            if (
+                value in [imagen.__class__.__name__, imagen.pipeline.__name__]
+                and use_LPWSD == imagen.lpw_stable_diffusion_used
+            ):
+                continue
+
+            if use_LPWSD:
+                imagen._lpw_stable_diffusion_used = True
+
+            # Convert pipeline class into imagen class.
+            match value:
+                case "StableDiffusionPipeline" | "Text2Img":
+                    change_pipeline_callback(None, "Text2Img")
+                    dpg.set_value(setting, "Text2Img")
+
+                case "StableDiffusionLongPromptWeightingPipeline":
+                    # Force LPWSD pipeline without loading.
+                    imagen._lpw_stable_diffusion_used = True
+
+                    change_pipeline_callback(None, "Text2Img")
+                    dpg.set_value(setting, "Text2Img")
+                    dpg.set_value("lpwsd_pipeline", True)
+
+                case "StableDiffusionImg2ImgPipeline" | "SDImg2Img":
+                    change_pipeline_callback(None, "SDImg2Img")
+                    dpg.set_value(setting, "SDImg2Img")
+
+                case _:
+                    logger.error("Pipeline could not be understood.")
+        elif setting == "loras":
+            # Split reformatted lora string.
+            loras = [
+                (
+                    re.sub("\\(?=[,;])", "", lora.split(",")[0]),
+                    float(lora.split(",")[1]),
+                )
+                for lora in value.split(";")
+            ]
+
+            for lora in loras:
+                imagen.load_lora(*lora)
+        elif setting == "embeddings":
+            # Split reformatted embedding string.
+            embeddings = [re.sub("\\(?=[,;])", "", value) for value in value.split(";")]
+
+            for embedding in embeddings:
+                imagen.load_embedding_model(embedding)
+        elif setting == "clip_skip":
+            imagen.set_clip_skip_amount(clip_skip := int(value))
+            dpg.set_value("clip_skip", clip_skip)
+        elif setting == "lpwsd_pipeline":
+            use_LPWSD = value == "True"
+            if use_LPWSD == imagen.lpw_stable_diffusion_used:
+                continue
+
+            lpwsd_callback(None, use_LPWSD)
+        else:
+            widget_type = dpg.get_item_type(setting)
+            # print(setting, value)
+
+            # Check the type of a widget to determine what type to cast to.
+            if "Int" in widget_type:
+                dpg.set_value(setting, int(value))
+            elif "Float" in widget_type:
+                dpg.set_value(setting, float(value))
+            elif "Checkbox" in widget_type:
+                enabled = value == "True"
+
+                dpg.get_item_callback(setting)(setting, enabled)
+                dpg.set_value(setting, enabled)
+            else:
+                dpg.set_value(setting, value)
+
+
 def load_from_image_callback():
     """Callback to load generation settings from an inputted onGAU generated image file."""
     image_path = dpg.get_value("image_path_input")
@@ -645,98 +737,13 @@ def load_from_image_callback():
         status("Image does not exist or could not be read.", logger.error)
         return
 
-    settings = image.info
     dpg.set_value("width", image.size[0])
     dpg.set_value("height", image.size[1])
 
     dpg.hide_item("image_load_dialog")
     dpg.hide_item("status_text")
 
-    for setting in settings:
-        if dpg.does_item_exist(setting):
-            setting_value = settings[setting]
-
-            if setting == "model" and setting_value != imagen.model:
-                load_model(setting_value)
-                dpg.set_value("model", setting_value)
-            elif setting == "scheduler":
-                if setting_value != imagen.scheduler.__name__ + (
-                    " Karras" if imagen.karras_sigmas_used else ""
-                ):
-                    logger.info(f"Loading scheduler {setting_value}...")
-
-                    use_karras = setting_value.endswith("Karras")
-                    imagen.set_scheduler(
-                        getattr(
-                            schedulers,
-                            setting_value[:-7] if use_karras else setting_value,
-                        ),
-                        use_karras,
-                    )
-
-                    dpg.set_value(setting, scheduler)
-            elif setting == "pipeline":
-                # Convert pipeline class into imagen class.
-                match setting_value:
-                    case "StableDiffusionPipeline":
-                        change_pipeline_callback(None, "Text2Img")
-                        dpg.set_value(setting, "Text2Img")
-
-                    case "StableDiffusionLongPromptWeightingPipeline":
-                        # Force LPWSD pipeline without loading.
-                        imagen._lpw_stable_diffusion_used = True
-
-                        change_pipeline_callback(None, "Text2Img")
-                        dpg.set_value(setting, "Text2Img")
-                        dpg.set_value("lpwsd_pipeline", True)
-
-                    case "StableDiffusionImg2ImgPipeline":
-                        change_pipeline_callback(None, "SDImg2Img")
-                        dpg.set_value(setting, "SDImg2Img")
-
-                    case _:
-                        logger.error("Pipeline could not be understood.")
-            elif setting == "loras":
-                # Split reformatted lora string.
-                loras = [
-                    (
-                        re.sub("\\(?=[,;])", "", lora.split(",")[0]),
-                        float(lora.split(",")[1]),
-                    )
-                    for lora in setting_value.split(";")
-                ]
-
-                for lora in loras:
-                    imagen.load_lora(*lora)
-            elif setting == "embeddings":
-                # Split reformatted embedding string.
-                embeddings = [
-                    re.sub("\\(?=[,;])", "", value)
-                    for value in setting_value.split(";")
-                ]
-
-                for embedding in embeddings:
-                    imagen.load_embedding_model(embedding)
-            elif setting == "clip_skip":
-                cs = int(setting_value)
-
-                imagen.set_clip_skip_amount(cs)
-                dpg.set_value(setting, cs)
-            else:
-                widget_type = dpg.get_item_type(setting)
-
-                # Check the type of a widget to determine what type to cast to.
-                if "Int" in widget_type:
-                    dpg.set_value(setting, int(setting_value))
-                elif "Float" in widget_type:
-                    dpg.set_value(setting, float(setting_value))
-                elif "Checkbox" in widget_type:
-                    enabled = setting_value == "True"
-
-                    dpg.get_item_callback(setting)(setting, enabled)
-                    dpg.set_value(setting, enabled)
-                else:
-                    dpg.set_value(setting, setting_value)
+    load_settings(image.info)
 
 
 def kill_gen_callback():
@@ -749,3 +756,64 @@ def kill_gen_callback():
 
     # Set generation status to kill
     gen_status = 3
+
+
+def load_save_callback(name: str):
+    """Callback to load a save."""
+    status(f"Loading save {name}...")
+
+    load_settings(settings_manager.get_settings(name, full=True))
+
+    dpg.hide_item("status_text")
+
+
+def update_delete_save_input():
+    """Update the input items of the delete save dialog."""
+    settings = settings_manager.settings
+    dpg.configure_item(
+        "delete_save_input",
+        items=settings,
+        default_value=settings[0] if len(settings) > 0 else "",
+    )
+
+
+def save_settings_callback():
+    """Callback to save current settings into new save."""
+    global saves_tags
+
+    name = dpg.get_value("save_name_input")
+    if name in ["DEFAULT", "main", ""]:
+        logger.error(f'Cannot name a save "{name}".')
+        return
+
+    settings_manager.save_settings(
+        name, ignore_keys=[] if dpg.get_value("include_model_checkbox") else ["model"]
+    )
+
+    update_delete_save_input()
+    saves_tags[name] = dpg.add_menu_item(
+        label=name,
+        before="delete_save_button",
+        callback=lambda: load_save_callback(name),
+        parent="saves_menu",
+    )
+    dpg.hide_item("save_settings_dialog")
+
+
+def delete_save_callback(name: str):
+    """Callback to delete a save."""
+    global saves_tags
+
+    name = dpg.get_value("delete_save_input")
+    if not name:
+        logger.error("No saves to delete.")
+        dpg.hide_item("delete_save_dialog")
+        return
+
+    settings_manager.delete_settings(name)
+    update_delete_save_input()
+
+    dpg.delete_item(saves_tags[name])
+    del saves_tags[name]
+    dpg.hide_item("delete_save_dialog")
+    logger.success(f"Successfully deleted {name}.")

@@ -32,7 +32,7 @@ python3 onGAU/main.py
 ## Todo
 
 - [x] Show total generation time
-- [ ] Save and load prompts and config
+- [x] Save and load prompts and config
 - [x] Add img2img pipeline
 - [x] Add LPW stable diffusion pipeline
 - [x] Add textual inversion model loading
@@ -43,6 +43,7 @@ python3 onGAU/main.py
 - [x] Load .safetensors lora in app
 - [x] Add tooltips
 - [ ] Change embedding models and loras in app
+- [ ] Use model hash instead of checking path
 - [ ] Rework and organize UI
 - [ ] Add controlnet support
 - [ ] Add super resolution (ESRGAN/SwinIR) support

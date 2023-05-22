@@ -4,6 +4,7 @@ import config
 
 import dearpygui.dearpygui as dpg
 import pyperclip
+import atexit
 
 # Register UI font.
 with dpg.font_registry():
@@ -20,7 +21,7 @@ with dpg.handler_registry():
 
 # Create dialog box for loading settings from an image file.
 with dpg.window(
-    label="Load settings from image.",
+    label="Load settings from image",
     tag="image_load_dialog",
     pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
     modal=True,
@@ -43,8 +44,78 @@ with dpg.window(
             callback=lambda: dpg.hide_item("image_load_dialog"),
         )
 
+# Create dialog box for loading settings from an image file.
+with dpg.window(
+    label="Save settings",
+    tag="save_settings_dialog",
+    pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
+    modal=True,
+):
+    dpg.add_input_text(
+        label="Save Name",
+        tag="save_name_input",
+        width=config.ITEM_WIDTH - config.FONT_SIZE * 5,
+    )
+    dpg.add_checkbox(
+        label="Include Model", tag="include_model_checkbox", default_value=True
+    )
+
+    with dpg.group(horizontal=True):
+        dpg.add_button(
+            label="Save",
+            width=config.ITEM_WIDTH / 2 - 5,
+            callback=save_settings_callback,
+        )
+        dpg.add_button(
+            label="Cancel",
+            width=config.ITEM_WIDTH / 2 - 5,
+            callback=lambda: dpg.hide_item("save_settings_dialog"),
+        )
+
+# Create dialog box for loading settings from an image file.
+with dpg.window(
+    label="Delete save",
+    tag="delete_save_dialog",
+    pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
+    modal=True,
+):
+    dpg.add_combo(
+        label="Saves",
+        tag="delete_save_input",
+    )
+    update_delete_save_input()
+
+    with dpg.group(horizontal=True):
+        dpg.add_button(
+            label="Delete",
+            width=config.ITEM_WIDTH / 2 - 5,
+            callback=delete_save_callback,
+        )
+        dpg.add_button(
+            label="Cancel",
+            width=config.ITEM_WIDTH / 2 - 5,
+            callback=lambda: dpg.hide_item("delete_save_dialog"),
+        )
+
+# Main window.
 with dpg.window(tag="window"):
     with dpg.menu_bar():
+        with dpg.menu(label="Saves", tag="saves_menu"):
+            for name in settings_manager.settings:
+                saves_tags[name] = dpg.add_menu_item(
+                    label=name, callback=lambda: load_save_callback(name)
+                )
+
+            dpg.add_menu_item(
+                label="Delete Save...",
+                tag="delete_save_button",
+                callback=lambda: dpg.show_item("delete_save_dialog"),
+            )
+            dpg.add_menu_item(
+                label="Save Current Settings...",
+                callback=lambda: dpg.show_item("save_settings_dialog"),
+            )
+
         with dpg.menu(label="File"):
             dpg.add_menu_item(
                 label="Load Settings from Image",
@@ -53,7 +124,7 @@ with dpg.window(tag="window"):
 
     dpg.add_input_text(
         label="Model",
-        default_value=model_path,
+        default_value=imagen.model,
         width=config.ITEM_WIDTH,
         tag="model",
     )
@@ -353,7 +424,7 @@ with dpg.window(tag="window"):
         overlay="0%", tag="progress_bar", width=config.ITEM_WIDTH, show=False
     )
 
-    with dpg.group(pos=(460, 27), show=False, tag="output_image_group"):
+    with dpg.group(pos=(440, 27), show=False, tag="output_image_group"):
         with dpg.group(horizontal=True, tag="output_image_selection"):
             dpg.add_button(label="<", tag="previous", callback=switch_image_callback)
             dpg.add_button(label=">", tag="next", callback=switch_image_callback)
@@ -370,10 +441,16 @@ with dpg.window(tag="window"):
 dpg.set_primary_window("window", True)
 
 if __name__ == "__main__":
-    dpg.set_exit_callback(settings_manager.save_user_settings)
-
     logger.success("Starting GUI...")
 
+    dpg.set_exit_callback(lambda: settings_manager.save_settings("main"))
+    atexit.register(dpg.destroy_context)
+
+    dpg.create_viewport(
+        title=config.WINDOW_TITLE,
+        width=config.WINDOW_SIZE[0],
+        height=config.WINDOW_SIZE[1],
+    )
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
