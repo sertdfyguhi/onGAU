@@ -53,7 +53,7 @@ def save_image(image_info: GeneratedImage, file_path: str):
         info = image_info.original_image
 
     scheduler_name = info.scheduler.__name__
-    if image_info.karras_sigmas_used:
+    if info.karras_sigmas_used:
         scheduler_name += " Karras"
 
     if (

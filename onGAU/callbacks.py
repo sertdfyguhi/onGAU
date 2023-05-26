@@ -43,7 +43,7 @@ def load_scheduler(scheduler: str):
     )
 
     if (
-        scheduler_name == imagen.scheduler.__class__.__name__
+        scheduler_name == imagen.scheduler.__name__
         and use_karras == imagen.karras_sigmas_used
         and algorithm_type == imagen.scheduler_algorithm_type
     ):

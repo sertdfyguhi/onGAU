@@ -382,6 +382,10 @@ with dpg.window(tag="window"):
             tag="save_model",
             callback=save_model_callback,
         )
+        dpg.add_text(
+            "Used to convert a ckpt or safetensors file into diffusers format.",
+            parent=dpg.add_tooltip("save_model"),
+        )
 
     dpg.add_button(
         label="Generate Image", tag="generate_btn", callback=generate_image_callback

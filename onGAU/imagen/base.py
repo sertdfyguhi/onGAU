@@ -336,8 +336,6 @@ class BaseImagen:
             if value
         }
 
-        print(kwargs)
-
         self._pipeline.scheduler = scheduler.from_config(
             self._pipeline.scheduler.config, **kwargs
         )
