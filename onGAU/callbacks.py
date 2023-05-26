@@ -107,6 +107,7 @@ if user_settings["compel_weighting"] == "True":
 
 for op in [
     "vae_slicing",
+    "model_cpu_offload",
     "xformers_memory_attention",
 ]:
     if user_settings[op] == "True":
@@ -193,7 +194,7 @@ def save_model_callback():
     dir_path = os.path.join(
         FILE_DIR,
         "models",
-        os.path.basename(imagen.model).split(".")[0],  # Get name of model.
+        os.path.basename(imagen.model_path).split(".")[0],  # Get name of model.
     )
     os.mkdir(dir_path)
     imagen.save_weights(dir_path)
@@ -305,7 +306,7 @@ def generate_image_callback():
     model_path = utils.append_dir_if_startswith(
         dpg.get_value("model"), FILE_DIR, "models/"
     )
-    if model_path != imagen.model and load_model(model_path):
+    if model_path != imagen.model_path and load_model(model_path):
         return
 
     scheduler = dpg.get_value("scheduler")
@@ -520,7 +521,7 @@ def lpwsd_callback(_, value: bool):
     status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
 
     try:
-        imagen.set_model(imagen.model, value)
+        imagen.set_model(imagen.model_path, value)
     except (RuntimeError, ValueError) as e:
         status(str(e), logger.error)
         dpg.set_value("lpwsd_pipeline", False)
@@ -660,7 +661,7 @@ def load_settings(settings: dict):
         if not dpg.does_item_exist(setting):
             continue
 
-        if setting == "model" and value != imagen.model:
+        if setting == "model" and value != imagen.model_path:
             load_model(value)
             dpg.set_value("model", value)
         elif setting == "scheduler":

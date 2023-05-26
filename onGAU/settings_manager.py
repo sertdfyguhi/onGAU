@@ -57,6 +57,7 @@ class SettingsManager:
             "scheduler",
             "attention_slicing",
             "vae_slicing",
+            "model_cpu_offload",
             "xformers_memory_attention",
             "compel_weighting",
         ]:
@@ -103,6 +104,7 @@ class SettingsManager:
             "safety_checker",
             "attention_slicing",
             "vae_slicing",
+            "model_cpu_offload",
             "xformers_memory_attention",
             "compel_weighting",
             "lpwsd_pipeline",

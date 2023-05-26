@@ -11,7 +11,7 @@ import os
 
 @dataclass
 class GeneratedImage:
-    model: str
+    model_path: str
     image: Image
     prompt: str
     negative_prompt: str
@@ -32,7 +32,7 @@ class GeneratedImage:
 
 @dataclass
 class GeneratedLatents:
-    model: str
+    model_path: str
     latents: torch.Tensor
     prompt: str
     negative_prompt: str
@@ -53,83 +53,31 @@ class GeneratedLatents:
 
 class BaseImagen:
     def __init__(
-        self, model: str, device: str, use_lpw_stable_diffusion: bool = False
+        self, model_path: str, device: str, use_lpw_stable_diffusion: bool = False
     ) -> None:
         """Base class for all imagen classes."""
-        self._model = model
-        self._device = device
-        self._scheduler = None
-        self._scheduler_algorithm_type = None
-        self._loras_loaded = []
-        self._embedding_models_loaded = []
-        self._clip_skip_amount = 0
-        self._karras_sigmas_used = False
-        self._safety_checker_enabled = False
-        self._attention_slicing_enabled = False
-        self._vae_slicing_enabled = False
-        self._xformers_memory_attention_enabled = False
-        self._compel_weighting_enabled = False
-        self.set_model(model, use_lpw_stable_diffusion)
-
-    @property
-    def model(self):
-        return self._model
-
-    @property
-    def device(self):
-        return self._device
+        self.model_path = model_path
+        self.device = device
+        self.scheduler_algorithm_type = None
+        self.loras_loaded = []
+        self.embedding_models_loaded = []
+        self.clip_skip_amount = 0
+        self.karras_sigmas_used = False
+        self.safety_checker_enabled = False
+        self.attention_slicing_enabled = False
+        self.vae_slicing_enabled = False
+        self.model_cpu_offload_enabled = False
+        self.xformers_memory_attention_enabled = False
+        self.compel_weighting_enabled = False
+        self.set_model(model_path, use_lpw_stable_diffusion)
 
     @property
     def scheduler(self):
-        return self._scheduler
-
-    @property
-    def scheduler_algorithm_type(self):
-        return self._scheduler_algorithm_type
+        return type(self._pipeline.scheduler)
 
     @property
     def pipeline(self):
-        return self._pipeline.__class__
-
-    @property
-    def clip_skip_amount(self):
-        return self._clip_skip_amount
-
-    @property
-    def safety_checker_enabled(self):
-        return self._safety_checker_enabled
-
-    @property
-    def attention_slicing_enabled(self):
-        return self._attention_slicing_enabled
-
-    @property
-    def vae_slicing_enabled(self):
-        return self._vae_slicing_enabled
-
-    @property
-    def xformers_memory_attention_enabled(self):
-        return self._xformers_memory_attention_enabled
-
-    @property
-    def compel_weighting_enabled(self):
-        return self._compel_weighting_enabled
-
-    @property
-    def embedding_models_loaded(self):
-        return self._embedding_models_loaded
-
-    @property
-    def loras_loaded(self):
-        return self._loras_loaded
-
-    @property
-    def lpw_stable_diffusion_used(self):
-        return self._lpw_stable_diffusion_used
-
-    @property
-    def karras_sigmas_used(self):
-        return self._karras_sigmas_used
+        return type(self._pipeline)
 
     @classmethod
     def from_class(cls, original):
@@ -151,6 +99,9 @@ class BaseImagen:
 
         if original.vae_slicing_enabled:
             c.enable_vae_slicing()
+
+        if original.model_cpu_offload_enabled:
+            c.enable_model_cpu_offload()
 
         if original.xformers_memory_attention_enabled:
             c.enable_xformers_memory_attention()
@@ -174,10 +125,10 @@ class BaseImagen:
         use_lpw_stable_diffusion: bool = False,
     ) -> None:
         """Base function to set the model of the pipeline."""
-        self._model = model
+        self.model_path = model
 
         if use_lpw_stable_diffusion:
-            if self._compel_weighting_enabled:
+            if self.compel_weighting_enabled:
                 raise RuntimeError(
                     "Compel prompt weighting cannot be used when using LPWSD pipeline."
                 )
@@ -188,11 +139,12 @@ class BaseImagen:
 
         orig_scheduler = None
 
+        # Some cleanup.
         if hasattr(self, "_pipeline"):
             orig_scheduler = self._pipeline.scheduler.__class__
 
             del self._pipeline
-            if self._compel_weighting_enabled:
+            if self.compel_weighting_enabled:
                 del self._compel
 
             if hasattr(self, "_orig_safety_checker"):
@@ -212,59 +164,60 @@ class BaseImagen:
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
-        self._lpw_stable_diffusion_used = use_lpw_stable_diffusion
+        self.lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
         if scheduler:
             self.set_scheduler(scheduler)  # might implement karras sigmas to this
         elif orig_scheduler:
             self.set_scheduler(
                 orig_scheduler,
-                self._karras_sigmas_used,
+                self.karras_sigmas_used,
             )
-
-        self._scheduler = self._pipeline.scheduler.__class__
 
         # remove progress bar logging
         self._pipeline.set_progress_bar_config(disable=True)
 
         # for clip skip use
         self._clip_layers = self._pipeline.text_encoder.text_model.encoder.layers
-        self.set_clip_skip_amount(self._clip_skip_amount, force=True)
+        self.set_clip_skip_amount(self.clip_skip_amount, force=True)
 
         # make a copy of the safety checker to be able to enable and disable it
         if hasattr(self._pipeline, "safety_checker"):
             self._orig_safety_checker = self._pipeline.safety_checker
 
-        if not self._safety_checker_enabled:
+        if not self.safety_checker_enabled:
             self.disable_safety_checker()
 
-        if self._attention_slicing_enabled:
+        if self.attention_slicing_enabled:
             self.enable_attention_slicing()
 
-        if self._vae_slicing_enabled:
+        if self.vae_slicing_enabled:
             self.enable_vae_slicing()
 
-        if self._xformers_memory_attention_enabled:
+        if self.model_cpu_offload_enabled:
+            self.enable_model_cpu_offload()
+
+        if self.xformers_memory_attention_enabled:
             self.enable_xformers_memory_attention()
 
-        if self._compel_weighting_enabled:
+        if self.compel_weighting_enabled:
             self.enable_compel_weighting()
 
-        for model in self._embedding_models_loaded:
+        for model in self.embedding_models_loaded:
             self.load_embedding_model(model)
 
-        for lora in self._loras_loaded:
+        for lora in self.loras_loaded:
             self.load_lora(*lora)
 
-        self.set_device(self._device)
+        self.set_device(self.device)
 
     def load_lpw_stable_diffusion(self):
         """Load Long Prompt Weighting Stable Diffusion pipeline."""
-        self._set_model(self._model, self._pipeline.__class__, self._scheduler, True)
+        self._set_model(self.model_path, self.pipeline, self.scheduler, True)
 
     def load_embedding_model(self, embedding_model_path: str):
         """Load a textual inversion model."""
-        if embedding_model_path in self._embedding_models_loaded:
+        if embedding_model_path in self.embedding_models_loaded:
             return
 
         try:
@@ -275,7 +228,7 @@ class BaseImagen:
         except ValueError:  # when tokenizer already has that token
             return
 
-        self._embedding_models_loaded.append(embedding_model_path)
+        self.embedding_models_loaded.append(embedding_model_path)
 
     def set_clip_skip_amount(self, amount: int = None, force: bool = False):
         if amount >= len(self._clip_layers):
@@ -283,27 +236,27 @@ class BaseImagen:
                 "Clip skip higher than amount of clip layers, no clip skip has been applied."
             )
 
-        if not force and amount == self._clip_skip_amount:
+        if not force and amount == self.clip_skip_amount:
             return
 
         self._pipeline.text_encoder.text_model.encoder.layers = (
             self._clip_layers[:-amount] if amount else self._clip_layers
         )
 
-        self._clip_skip_amount = amount
+        self.clip_skip_amount = amount
 
     def load_lora(self, lora_path: str, weight: float = 0.75):
         """Load a .safetensors lora."""
-        if lora_path in [l[0] for l in self._loras_loaded]:
+        if lora_path in [l[0] for l in self.loras_loaded]:
             return
 
         self._pipeline = utils.load_lora(
             self._pipeline,
             lora_path,
-            self._device,
+            self.device,
             weight,
         )
-        self._loras_loaded.append((lora_path, weight))
+        self.loras_loaded.append((lora_path, weight))
 
     def set_device(self, device: str):
         """Change device of pipeline."""
@@ -315,7 +268,7 @@ class BaseImagen:
             else:
                 device = "cpu"
 
-        self._device = device
+        self.device = device
         self._pipeline = self._pipeline.to(device)
 
     # TODO: Add DPM++ SDE Karras.
@@ -340,13 +293,12 @@ class BaseImagen:
             self._pipeline.scheduler.config, **kwargs
         )
 
-        self._scheduler = scheduler
-        self._karras_sigmas_used = use_karras_sigmas
-        self._scheduler_algorithm_type = algorithm_type
+        self.karras_sigmas_used = use_karras_sigmas
+        self.scheduler_algorithm_type = algorithm_type
 
     def save_weights(self, dir_path: str):
         """Save model weights in diffusers format in directory path."""
-        orig_clip_skip = self._clip_skip_amount
+        orig_clip_skip = self.clip_skip_amount
         self.set_clip_skip_amount(0)
 
         self._pipeline.save_pretrained(dir_path)
@@ -356,47 +308,64 @@ class BaseImagen:
     def enable_safety_checker(self):
         """Enable the safety checker."""
         if hasattr(self._pipeline, "safety_checker"):
-            self._safety_checker_enabled = True
+            self.safety_checker_enabled = True
             self._pipeline.safety_checker = self._orig_safety_checker
 
     def disable_safety_checker(self):
         """Disable the safety checker."""
         if hasattr(self._pipeline, "safety_checker") and self._pipeline.safety_checker:
-            self._safety_checker_enabled = False
+            self.safety_checker_enabled = False
             self._pipeline.safety_checker = lambda images, clip_input: (images, False)
 
     def enable_attention_slicing(self):
-        self._attention_slicing_enabled = True
+        self.attention_slicing_enabled = True
         self._pipeline.enable_attention_slicing()
 
     def disable_attention_slicing(self):
-        self._attention_slicing_enabled = False
+        self.attention_slicing_enabled = False
         self._pipeline.disable_attention_slicing()
 
     def enable_vae_slicing(self):
-        self._vae_slicing_enabled = True
+        self.vae_slicing_enabled = True
         self._pipeline.enable_vae_slicing()
 
     def disable_vae_slicing(self):
-        self._vae_slicing_enabled = False
+        self.vae_slicing_enabled = False
         self._pipeline.disable_vae_slicing()
 
     def enable_xformers_memory_attention(self):
-        self._xformers_memory_attention_enabled = True
+        self.xformers_memory_attention_enabled = True
         self._pipeline.enable_xformers_memory_efficient_attention()
 
     def disable_xformers_memory_attention(self):
-        self._xformers_memory_attention_enabled = False
+        self.xformers_memory_attention_enabled = False
         self._pipeline.disable_xformers_memory_efficient_attention()
 
+    def enable_model_cpu_offload(self):
+        self.model_cpu_offload_enabled = True
+        self._pipeline.enable_model_cpu_offload()
+
+    def disable_model_cpu_offload(self):
+        self.model_cpu_offload_enabled = False
+
+        # Reinstantiates the model since you cannot disable model cpu offload.
+        self._set_model(
+            self.model_path,
+            self.pipeline,
+            self.scheduler,
+            self.lpw_stable_diffusion_used,
+        )
+
     def enable_compel_weighting(self):
-        if self._lpw_stable_diffusion_used:
+        if self.lpw_stable_diffusion_used:
             raise RuntimeError(
                 "Compel prompt weighting cannot be used when using LPWSD pipeline."
             )
 
-        self._compel_weighting_enabled = True
-        self._compel = Compel(self._pipeline.tokenizer, self._pipeline.text_encoder)
+        self.compel_weighting_enabled = True
+        self._compel = Compel(
+            self._pipeline.tokenizer, self._pipeline.text_encoder, device=self.device
+        )
 
     def disable_compel_weighting(self):
-        self._compel_weighting_enabled = False
+        self.compel_weighting_enabled = False

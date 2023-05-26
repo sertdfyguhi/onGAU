@@ -74,7 +74,7 @@ class SDImg2Img(BaseImagen):
         temp_prompt = prompt
         temp_negative_prompt = negative_prompt
 
-        if self._compel_weighting_enabled:
+        if self.compel_weighting_enabled:
             temp_prompt = temp_negative_prompt = None
             prompt_embeds = self._compel.build_conditioning_tensor(prompt)
             negative_prompt_embeds = self._compel.build_conditioning_tensor(
@@ -84,19 +84,19 @@ class SDImg2Img(BaseImagen):
         # Use for callback.
         out_image_kwargs = {
             "base_image_path": base_image.filename,
-            "model": self._model,
+            "model_path": self.model_path,
             "prompt": prompt,
             "negative_prompt": negative_prompt,
             "guidance_scale": guidance_scale,
             "step_count": step_count,
             "pipeline": self.pipeline,
             "scheduler": self.scheduler,
-            "karras_sigmas_used": self._karras_sigmas_used,
-            "scheduler_algorithm_type": self._scheduler_algorithm_type,
-            "compel_weighting": self._compel_weighting_enabled,
-            "clip_skip": self._clip_skip_amount,
-            "loras": self._loras_loaded,
-            "embeddings": self._embedding_models_loaded,
+            "karras_sigmas_used": self.karras_sigmas_used,
+            "scheduler_algorithm_type": self.scheduler_algorithm_type,
+            "compel_weighting": self.compel_weighting_enabled,
+            "clip_skip": self.clip_skip_amount,
+            "loras": self.loras_loaded,
+            "embeddings": self.embedding_models_loaded,
             "width": base_image.size[0],
             "height": base_image.size[1],
         }
@@ -129,15 +129,13 @@ class SDImg2Img(BaseImagen):
             "callback": callback_wrapper,
         }
 
-        if self._lpw_stable_diffusion_used:
+        if self.lpw_stable_diffusion_used:
             # lpwsd pipeline does not accept prompt embeds
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
             kwargs["max_embeddings_multiples"] = 6
 
         # lpwsd pipeline does not work with a list of generators
-        if self._lpw_stable_diffusion_used or (
-            self._device == "mps" and len(seeds) > 1
-        ):
+        if self.lpw_stable_diffusion_used or (self.device == "mps" and len(seeds) > 1):
             kwargs["num_images_per_prompt"] = 1
             images = [
                 self._pipeline(**kwargs, generator=generators[i]).images[0]

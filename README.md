@@ -40,12 +40,13 @@ python3 onGAU/main.py
 - [x] Add LPW stable diffusion pipeline
 - [x] Add textual inversion model loading
 - [x] Add Clip Skip parameter
-- [ ] Add CPU model offloading
+- [x] Add model CPU offloading
 - [x] Average step time
 - [x] Load .ckpt in app
 - [x] Load .safetensors lora in app
 - [ ] Implement lora correctly and fully
 - [x] Add tooltips
+- [ ] Denoising strength
 - [ ] Change embedding models and loras in app
 - [ ] Rework and organize UI
 - [ ] Merging models

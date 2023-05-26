@@ -124,7 +124,7 @@ with dpg.window(tag="window"):
 
     dpg.add_input_text(
         label="Model",
-        default_value=imagen.model,
+        default_value=imagen.model_path,
         width=config.ITEM_WIDTH,
         tag="model",
     )
@@ -353,6 +353,17 @@ with dpg.window(tag="window"):
             tag="xformers_memory_attention",
             default_value=imagen.xformers_memory_attention_enabled,
             callback=toggle_xformers_callback,
+        )
+
+        dpg.add_checkbox(
+            label="Enable Model CPU Offload",
+            tag="model_cpu_offload",
+            default_value=imagen.model_cpu_offload_enabled,
+            callback=checkbox_callback,
+        )
+        dpg.add_text(
+            "Offloads the model onto the CPU. Reduces memory usage while keeping performance at best.",
+            parent=dpg.add_tooltip("model_cpu_offload"),
         )
 
         dpg.add_checkbox(
