@@ -29,6 +29,9 @@ python3 onGAU/main.py
 `pnginfo.py`:  
 &nbsp;&nbsp;&nbsp;Shows the png metadata (prompt, negative prompt...) of a png file.
 
+`esrgan.py`:  
+&nbsp;&nbsp;&nbsp;CLI to upscale an image using ESRGAN.
+
 ## Todo
 
 - [x] Show total generation time
@@ -41,9 +44,9 @@ python3 onGAU/main.py
 - [x] Average step time
 - [x] Load .ckpt in app
 - [x] Load .safetensors lora in app
+- [ ] Implement lora correctly and fully
 - [x] Add tooltips
 - [ ] Change embedding models and loras in app
-- [ ] Use model hash instead of checking path
 - [ ] Rework and organize UI
 - [ ] Add controlnet support
 - [ ] Add super resolution (ESRGAN/SwinIR) support
@@ -60,3 +63,4 @@ python3 onGAU/main.py
   - [x] Use better code to get image size
   - [x] Sometimes after changing models inference is extremely slow
   - [x] When switching pipelines inference gets extremely slow
+  - [ ] First step takes extra time

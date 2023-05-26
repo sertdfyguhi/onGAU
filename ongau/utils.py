@@ -45,7 +45,6 @@ def append_dir_if_startswith(path: str, dir: str, startswith: str):
 def save_image(image_info: GeneratedImage, file_path: str):
     """Saves an image using a GeneratedImage object."""
     metadata = PngInfo()
-
     info = image_info
 
     if type(image_info) == ESRGANUpscaledImage:
@@ -53,16 +52,23 @@ def save_image(image_info: GeneratedImage, file_path: str):
         metadata.add_text("upscale_amount", str(image_info.upscale_amount))
         info = image_info.original_image
 
+    scheduler_name = info.scheduler.__name__
+    if image_info.karras_sigmas_used:
+        scheduler_name += " Karras"
+
+    if (
+        info.scheduler.__name__ == "DPMSolverMultistepScheduler"
+        and not info.scheduler_algorithm_type
+    ):
+        scheduler_name += "++"
+
     metadata.add_text("model", info.model)
     metadata.add_text("prompt", info.prompt)
     metadata.add_text("negative_prompt", info.negative_prompt)
     metadata.add_text("guidance_scale", str(info.guidance_scale))
     metadata.add_text("step_count", str(info.step_count))
     metadata.add_text("pipeline", info.pipeline.__name__)
-    metadata.add_text(
-        "scheduler",
-        info.scheduler.__name__ + (" Karras" if info.karras_sigmas_used else ""),
-    )
+    metadata.add_text("scheduler", scheduler_name)
     metadata.add_text("seed", str(info.seed))
     metadata.add_text("clip_skip", str(info.clip_skip))
     metadata.add_text("compel_weighting", str(info.compel_weighting))

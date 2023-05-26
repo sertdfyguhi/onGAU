@@ -105,11 +105,16 @@ class ESRGAN:
         self._esrgan.tile_size = tile_size
 
     def upscale_image(
-        self, generated_image: GeneratedImage, upscale: int
+        self, generated_image: GeneratedImage | Image.Image, upscale: int | None = None
     ) -> ESRGANUpscaledImage:
         """Upscale a GeneratedImage object using ESRGAN."""
         output, _ = self._esrgan.enhance(
-            np.array(generated_image.image), outscale=upscale
+            np.array(
+                generated_image.image
+                if (is_genimage := type(generated_image) == GeneratedImage)
+                else generated_image
+            ),
+            outscale=upscale,
         )
         height, width, _ = output.shape
 
@@ -118,7 +123,7 @@ class ESRGAN:
             upscale_amount=upscale,
             width=width,
             height=height,
-            seed=generated_image.seed,
+            seed=generated_image.seed if is_genimage else None,
             image=_convert_cv2_to_PIL(output),
             original_image=generated_image,
         )

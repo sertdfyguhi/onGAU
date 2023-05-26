@@ -79,6 +79,7 @@ class Text2Img(BaseImagen):
             "pipeline": self.pipeline,
             "scheduler": self.scheduler,
             "karras_sigmas_used": self._karras_sigmas_used,
+            "scheduler_algorithm_type": self._scheduler_algorithm_type,
             "compel_weighting": self._compel_weighting_enabled,
             "clip_skip": self._clip_skip_amount,
             "loras": self._loras_loaded,

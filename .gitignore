@@ -1,5 +1,5 @@
 .DS_Store
-ongau/models/
+models
 __pycache__
 saves*
 setup.py

@@ -28,9 +28,33 @@ print(
 
 def load_scheduler(scheduler: str):
     """Load a scheduler."""
-    use_karras = scheduler.endswith("Karras")
+    scheduler_name = scheduler
+
+    try:
+        scheduler_name, use_karras = scheduler[: scheduler.index(" Karras")], True
+    except ValueError:
+        scheduler_name, use_karras = scheduler, False
+
+    algorithm_type = (
+        "dpmsolver"
+        if scheduler_name == "DPMSolverMultistepScheduler"
+        and not scheduler.endswith("++")
+        else None
+    )
+
+    if (
+        scheduler_name == imagen.scheduler.__class__.__name__
+        and use_karras == imagen.karras_sigmas_used
+        and algorithm_type == imagen.scheduler_algorithm_type
+    ):
+        return
+
+    logger.info(f"Loading scheduler {scheduler}...")
+
     imagen.set_scheduler(
-        getattr(schedulers, scheduler[:-7] if use_karras else scheduler), use_karras
+        getattr(schedulers, scheduler_name),
+        use_karras_sigmas=use_karras,
+        algorithm_type=algorithm_type,
     )
 
 
@@ -285,13 +309,7 @@ def generate_image_callback():
         return
 
     scheduler = dpg.get_value("scheduler")
-
-    # Check if scheduler is different from currently used scheduler.
-    if scheduler != imagen.scheduler.__name__ + (
-        " Karras" if imagen.karras_sigmas_used else ""
-    ):
-        logger.info(f"Loading scheduler {scheduler}...")
-        load_scheduler(scheduler)
+    load_scheduler(scheduler)
 
     clip_skip = dpg.get_value("clip_skip")
     if clip_skip != imagen.clip_skip_amount:
@@ -645,10 +663,7 @@ def load_settings(settings: dict):
         if setting == "model" and value != imagen.model:
             load_model(value)
             dpg.set_value("model", value)
-        elif setting == "scheduler" and value != imagen.scheduler.__name__ + (
-            " Karras" if imagen.karras_sigmas_used else ""
-        ):
-            logger.info(f"Loading scheduler {value}...")
+        elif setting == "scheduler":
             load_scheduler(value)
             dpg.set_value(setting, value)
         elif setting == "pipeline":

@@ -21,6 +21,7 @@ class GeneratedImage:
     pipeline: DiffusionPipeline
     scheduler: SchedulerMixin
     karras_sigmas_used: bool
+    scheduler_algorithm_type: str
     compel_weighting: bool
     clip_skip: int
     loras: list[str]
@@ -41,6 +42,7 @@ class GeneratedLatents:
     pipeline: DiffusionPipeline
     scheduler: SchedulerMixin
     karras_sigmas_used: bool
+    scheduler_algorithm_type: str
     compel_weighting: bool
     clip_skip: int
     loras: list[str]
@@ -57,6 +59,7 @@ class BaseImagen:
         self._model = model
         self._device = device
         self._scheduler = None
+        self._scheduler_algorithm_type = None
         self._loras_loaded = []
         self._embedding_models_loaded = []
         self._clip_skip_amount = 0
@@ -79,6 +82,10 @@ class BaseImagen:
     @property
     def scheduler(self):
         return self._scheduler
+
+    @property
+    def scheduler_algorithm_type(self):
+        return self._scheduler_algorithm_type
 
     @property
     def pipeline(self):
@@ -311,22 +318,33 @@ class BaseImagen:
         self._device = device
         self._pipeline = self._pipeline.to(device)
 
-    # TODO: Add DPM++ SDE Karras after diffusers updates.
-    def set_scheduler(self, scheduler: SchedulerMixin, use_karras_sigmas: bool = False):
+    # TODO: Add DPM++ SDE Karras.
+    def set_scheduler(
+        self,
+        scheduler: SchedulerMixin,
+        use_karras_sigmas: bool = False,
+        algorithm_type: str | None = None,
+    ):
         """Change scheduler of pipeline."""
-        if (
-            use_karras_sigmas
-        ):  # TODO: Set scheduler internal variable instead of reinstating when using same scheduler
-            self._pipeline.scheduler = scheduler.from_config(
-                self._pipeline.scheduler.config, use_karras_sigmas=use_karras_sigmas
-            )
-        else:
-            self._pipeline.scheduler = scheduler.from_config(
-                self._pipeline.scheduler.config
-            )
+        # TODO: Set scheduler internal variable instead of reinstating when using same scheduler
+        kwargs = {
+            key: value
+            for key, value in {
+                "use_karras_sigmas": use_karras_sigmas,
+                "algorithm_type": algorithm_type,
+            }.items()
+            if value
+        }
+
+        print(kwargs)
+
+        self._pipeline.scheduler = scheduler.from_config(
+            self._pipeline.scheduler.config, **kwargs
+        )
 
         self._scheduler = scheduler
         self._karras_sigmas_used = use_karras_sigmas
+        self._scheduler_algorithm_type = algorithm_type
 
     def save_weights(self, dir_path: str):
         """Save model weights in diffusers format in directory path."""
