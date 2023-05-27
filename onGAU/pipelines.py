@@ -16,10 +16,12 @@ def _generate(func, callback, **kwargs):
         start_time = time.time()
 
         try:
-            # TODO: Handle generation errors.
             images = func(**kwargs)
         except RuntimeError as e:  #
             callback(e.args[1], time.time() - start_time, True)
+            return
+        except Exception as e:
+            callback(e, time.time() - start_time, True)
             return
 
         callback(images, time.time() - start_time, False)

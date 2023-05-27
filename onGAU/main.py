@@ -247,18 +247,6 @@ with dpg.window(tag="window"):
         parent=dpg.add_tooltip("seed"),
     )
 
-    dpg.add_input_int(
-        label="Upscale Amount",
-        default_value=int(user_settings["upscale_amount"]),
-        min_value=1,
-        width=config.ITEM_WIDTH,
-        tag="upscale_amount",
-    )
-    dpg.add_text(
-        "The amount to upscale the image.",
-        parent=dpg.add_tooltip("upscale_amount"),
-    )
-
     # file dialog to be used
     # with dpg.group(horizontal=True):
     #     btn = dpg.add_button(label="Choose...")
@@ -424,8 +412,7 @@ with dpg.window(tag="window"):
         with dpg.group(horizontal=True):
             dpg.add_button(
                 label="Upscale Image",
-                tag="upscale_button",
-                callback=upscale_image_callback,
+                callback=lambda: dpg.show_item("upscale_window"),
             )
             dpg.add_button(
                 label="Save Image", tag="save_button", callback=save_image_callback
@@ -465,6 +452,25 @@ with dpg.window(tag="window"):
     dpg.bind_font(default_font)
 
 dpg.set_primary_window("window", True)
+
+with dpg.window(label="Upscale", show=False, tag="upscale_window"):
+    dpg.add_input_int(
+        label="Upscale Amount",
+        default_value=int(user_settings["upscale_amount"]),
+        min_value=1,
+        width=config.ITEM_WIDTH,
+        tag="upscale_amount",
+    )
+    dpg.add_text(
+        "The amount to upscale the image.",
+        parent=dpg.add_tooltip("upscale_amount"),
+    )
+
+    dpg.add_button(
+        label="Upscale Image",
+        tag="upscale_button",
+        callback=upscale_image_callback,
+    )
 
 if __name__ == "__main__":
     logger.success("Starting GUI...")

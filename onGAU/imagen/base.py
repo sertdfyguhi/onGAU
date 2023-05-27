@@ -53,7 +53,11 @@ class GeneratedLatents:
 
 class BaseImagen:
     def __init__(
-        self, model_path: str, device: str, use_lpw_stable_diffusion: bool = False
+        self,
+        model_path: str,
+        device: str,
+        use_lpw_stable_diffusion: bool = False,
+        max_embeddings_multiples: int = 5,
     ) -> None:
         """Base class for all imagen classes."""
         self.model_path = model_path
@@ -62,6 +66,8 @@ class BaseImagen:
         self.loras_loaded = []
         self.embedding_models_loaded = []
         self.clip_skip_amount = 0
+        self.max_embeddings_multiples = max_embeddings_multiples
+
         self.karras_sigmas_used = False
         self.safety_checker_enabled = False
         self.attention_slicing_enabled = False

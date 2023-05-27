@@ -21,6 +21,8 @@ ESRGAN_MODEL = ""
 # Path to the .ini file to save user settings.
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
 
+# Increase this number if prompt is truncated in LPWSD pipeline.
+MAX_EMBEDDINGS_MULTIPLES = 5
 
 # Default values if user settings does not contain it. You do not need to change this.
 DEFAULT_PROMPT = ""

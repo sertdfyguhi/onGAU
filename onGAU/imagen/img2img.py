@@ -136,7 +136,7 @@ class SDImg2Img(BaseImagen):
         if self.lpw_stable_diffusion_used:
             # lpwsd pipeline does not accept prompt embeds
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
-            kwargs["max_embeddings_multiples"] = 6
+            kwargs["max_embeddings_multiples"] = self.max_embeddings_multiples
 
         # lpwsd pipeline does not work with a list of generators
         if self.lpw_stable_diffusion_used or (self.device == "mps" and len(seeds) > 1):

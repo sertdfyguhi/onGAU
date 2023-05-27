@@ -86,6 +86,8 @@ except FileNotFoundError:
     logger.info(f"Loading {model_path}...")
     imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
 
+imagen.max_embeddings_multiples = config.MAX_EMBEDDINGS_MULTIPLES
+
 if user_settings["safety_checker"] == "True":
     imagen.disable_safety_checker()
 
@@ -344,9 +346,6 @@ def generate_image_callback():
 
         last_step_latents = []
 
-        if not images:
-            return
-
         for child in dpg.get_item_children("advanced_config")[1]:
             # Ignore tooltips.
             if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
@@ -355,6 +354,15 @@ def generate_image_callback():
             dpg.enable_item(child)
 
         dpg.enable_item("generate_btn")
+
+        dpg.hide_item("gen_status_group")
+        dpg.hide_item("progress_bar")
+
+        if not images:
+            return
+        elif isinstance(images, Exception):
+            status(str(images), logger.error)
+            return
 
         # Add an "s" if there are more than 1 image.
         plural = "s" if len(images) > 1 else ""
@@ -387,8 +395,6 @@ Total time: {total_time:.1f}s"""
         # Show image index counter.
         dpg.set_value("output_image_index", texture_manager.to_counter_string())
 
-        dpg.hide_item("gen_status_group")
-        dpg.hide_item("progress_bar")
         dpg.show_item("info_group")
         dpg.show_item("output_button_group")
         dpg.show_item("output_image_group")
