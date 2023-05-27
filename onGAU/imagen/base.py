@@ -79,10 +79,6 @@ class BaseImagen:
         self.set_model(model_path, use_lpw_stable_diffusion)
 
     @property
-    def scheduler(self):
-        return type(self._pipeline.scheduler)
-
-    @property
     def pipeline(self):
         return type(self._pipeline)
 
@@ -180,6 +176,8 @@ class BaseImagen:
                 orig_scheduler,
                 self.karras_sigmas_used,
             )
+
+        self.scheduler = type(self._pipeline.scheduler)
 
         # remove progress bar logging
         self._pipeline.set_progress_bar_config(disable=True)

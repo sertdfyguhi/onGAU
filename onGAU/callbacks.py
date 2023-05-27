@@ -462,12 +462,12 @@ def toggle_xformers_callback(_, value: bool):
         )
 
 
-def toggle_advanced_config_callback():
-    """Callback to toggle visibility of advanced configurations."""
-    if dpg.is_item_shown("advanced_config"):
-        dpg.hide_item("advanced_config")
+def toggle_item(tag: str | int):
+    """Callback to toggle visibility of an item."""
+    if dpg.is_item_shown(tag):
+        dpg.hide_item(tag)
     else:
-        dpg.show_item("advanced_config")
+        dpg.show_item(tag)
 
 
 def change_pipeline_callback(_, pipeline: str):
@@ -478,7 +478,7 @@ def change_pipeline_callback(_, pipeline: str):
     update_window_title(f"Loading {pipeline}...")
 
     # Clear old imagen object.
-    # del imagen._pipeline
+    del imagen._pipeline
 
     match pipeline:
         case "Text2Img":

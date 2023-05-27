@@ -6,6 +6,8 @@ import dearpygui.dearpygui as dpg
 import pyperclip
 import atexit
 
+CENTER = (config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2)
+
 # Register UI font.
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
@@ -23,7 +25,7 @@ with dpg.handler_registry():
 with dpg.window(
     label="Load settings from image",
     tag="image_load_dialog",
-    pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
+    pos=CENTER,
     modal=True,
 ):
     dpg.add_input_text(
@@ -96,6 +98,25 @@ with dpg.window(
             width=config.ITEM_WIDTH / 2 - 5,
             callback=lambda: dpg.hide_item("delete_save_dialog"),
         )
+
+with dpg.window(label="Upscale", show=False, tag="upscale_window", pos=CENTER):
+    dpg.add_input_int(
+        label="Upscale Amount",
+        default_value=int(user_settings["upscale_amount"]),
+        min_value=1,
+        width=config.ITEM_WIDTH * 0.75,
+        tag="upscale_amount",
+    )
+    dpg.add_text(
+        "The amount to upscale the image.",
+        parent=dpg.add_tooltip("upscale_amount"),
+    )
+
+    dpg.add_button(
+        label="Upscale Image",
+        tag="upscale_button",
+        callback=upscale_image_callback,
+    )
 
 # Main window.
 with dpg.window(tag="window"):
@@ -268,7 +289,7 @@ with dpg.window(tag="window"):
         )
 
     dpg.add_button(
-        label="Advanced Configuration", callback=toggle_advanced_config_callback
+        label="Advanced Configuration", callback=lambda: toggle_item("advanced_config")
     )
 
     with dpg.group(tag="advanced_config", indent=7, show=False):
@@ -408,15 +429,14 @@ with dpg.window(tag="window"):
         )
 
     # change tag name to smth better
-    with dpg.group(tag="output_button_group", show=False):
-        with dpg.group(horizontal=True):
-            dpg.add_button(
-                label="Upscale Image",
-                callback=lambda: dpg.show_item("upscale_window"),
-            )
-            dpg.add_button(
-                label="Save Image", tag="save_button", callback=save_image_callback
-            )
+    with dpg.group(tag="output_button_group", horizontal=True, show=False):
+        dpg.add_button(
+            label="Upscale",
+            callback=lambda: toggle_item("upscale_window"),
+        )
+        dpg.add_button(
+            label="Save Image", tag="save_button", callback=save_image_callback
+        )
 
     with dpg.group(horizontal=True, tag="info_group", show=False):
         dpg.add_text(tag="info_text")
@@ -452,25 +472,6 @@ with dpg.window(tag="window"):
     dpg.bind_font(default_font)
 
 dpg.set_primary_window("window", True)
-
-with dpg.window(label="Upscale", show=False, tag="upscale_window"):
-    dpg.add_input_int(
-        label="Upscale Amount",
-        default_value=int(user_settings["upscale_amount"]),
-        min_value=1,
-        width=config.ITEM_WIDTH,
-        tag="upscale_amount",
-    )
-    dpg.add_text(
-        "The amount to upscale the image.",
-        parent=dpg.add_tooltip("upscale_amount"),
-    )
-
-    dpg.add_button(
-        label="Upscale Image",
-        tag="upscale_button",
-        callback=upscale_image_callback,
-    )
 
 if __name__ == "__main__":
     logger.success("Starting GUI...")
