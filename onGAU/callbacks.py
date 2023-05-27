@@ -570,7 +570,7 @@ def interrupt_callback():
         dpg.hide_item("output_button_group")
 
         dpg.hide_item("output_image_group")
-        dpg.show_item("use_in_img2img_btn")
+        dpg.show_item("output_image_btns")
     else:
         gen_status = 1
 
@@ -601,7 +601,7 @@ def interrupt_callback():
 
         dpg.show_item("output_button_group")
 
-        dpg.hide_item("use_in_img2img_btn")
+        dpg.hide_item("output_image_btns")
         dpg.show_item("output_image_group")
 
 
@@ -833,3 +833,8 @@ def delete_save_callback(name: str):
     del saves_tags[name]
     dpg.hide_item("delete_save_dialog")
     logger.success(f"Successfully deleted {name}.")
+
+
+def reuse_seed_callback():
+    """Callback to reuse seed of currently shown image for generation."""
+    dpg.set_value("seed", texture_manager.current()[1].seed)

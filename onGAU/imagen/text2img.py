@@ -121,7 +121,7 @@ class Text2Img(BaseImagen):
             kwargs["max_embeddings_multiples"] = 6
 
         # lpwsd pipeline does not work with a list of generators
-        if self.lpw_stable_diffusion_used or (self._evice == "mps" and len(seeds) > 1):
+        if self.lpw_stable_diffusion_used or (self.device == "mps" and len(seeds) > 1):
             kwargs["num_images_per_prompt"] = 1
             images = [
                 self._pipeline(**kwargs, generator=generators[i]).images[0]

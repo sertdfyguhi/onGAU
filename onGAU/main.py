@@ -445,10 +445,15 @@ with dpg.window(tag="window"):
             dpg.add_button(label=">", tag="next", callback=switch_image_callback)
             dpg.add_text(tag="output_image_index")
 
+        with dpg.group(tag="output_image_btns"):
             dpg.add_button(
                 label="Use In Img2Img",
                 tag="use_in_img2img_btn",
                 callback=use_in_img2img_callback,
+            )
+            dpg.add_button(
+                label="Reuse Seed",
+                callback=reuse_seed_callback,
             )
 
     dpg.bind_font(default_font)
