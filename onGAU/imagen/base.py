@@ -69,6 +69,7 @@ class BaseImagen:
         self.model_cpu_offload_enabled = False
         self.xformers_memory_attention_enabled = False
         self.compel_weighting_enabled = False
+
         self.set_model(model_path, use_lpw_stable_diffusion)
 
     @property
@@ -83,7 +84,7 @@ class BaseImagen:
     def from_class(cls, original):
         """Create a new imagen object from another imagen object."""
         c = cls(
-            original.model, original.device, original.lpw_stable_diffusion_used
+            original.model_path, original.device, original.lpw_stable_diffusion_used
         )  # initialize class
 
         c.set_clip_skip_amount(original.clip_skip_amount)

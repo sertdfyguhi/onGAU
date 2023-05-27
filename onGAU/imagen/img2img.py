@@ -11,11 +11,13 @@ import time
 
 @dataclass
 class Img2ImgGeneratedImage(GeneratedImage):
+    strength: float
     base_image_path: str
 
 
 @dataclass
 class Img2ImgGeneratedLatents(GeneratedLatents):
+    strength: float
     base_image_path: str
 
 
@@ -57,8 +59,8 @@ class SDImg2Img(BaseImagen):
         base_image: Image,
         prompt: str,
         negative_prompt: str = "",
-        # strength: float = 0.8,
         guidance_scale: float = 8.0,
+        strength: float = 0.8,
         step_count: int = 25,
         image_amount: int = 1,
         seed: int | list[int] = None,
@@ -88,6 +90,7 @@ class SDImg2Img(BaseImagen):
             "prompt": prompt,
             "negative_prompt": negative_prompt,
             "guidance_scale": guidance_scale,
+            "strength": strength,
             "step_count": step_count,
             "pipeline": self.pipeline,
             "scheduler": self.scheduler,
@@ -125,6 +128,7 @@ class SDImg2Img(BaseImagen):
             "negative_prompt_embeds": negative_prompt_embeds,
             "num_inference_steps": step_count,
             "guidance_scale": guidance_scale,
+            "strength": strength,
             "num_images_per_prompt": image_amount,
             "callback": callback_wrapper,
         }

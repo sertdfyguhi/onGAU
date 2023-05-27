@@ -110,9 +110,9 @@ class ESRGAN:
         """Upscale a GeneratedImage object using ESRGAN."""
         output, _ = self._esrgan.enhance(
             np.array(
-                generated_image.image
-                if (is_genimage := type(generated_image) == GeneratedImage)
-                else generated_image
+                generated_image
+                if (is_pil := type(generated_image) == Image.Image)
+                else generated_image.image
             ),
             outscale=upscale,
         )
@@ -123,7 +123,7 @@ class ESRGAN:
             upscale_amount=upscale,
             width=width,
             height=height,
-            seed=generated_image.seed if is_genimage else None,
+            seed=generated_image.seed if not is_pil else None,
             image=_convert_cv2_to_PIL(output),
             original_image=generated_image,
         )

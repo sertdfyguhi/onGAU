@@ -181,15 +181,20 @@ with dpg.window(tag="window"):
         parent=dpg.add_tooltip("height"),
     )
 
-    # dpg.add_input_float(
-    #     label="Strength",
-    #     default_value=0.8,
-    #     min_value=0.0,
-    #     max_value=1.0,
-    #     format="%.1f",
-    #     width=config.ITEM_WIDTH,
-    #     tag="strength",
-    # )
+    with dpg.group(tag="strength_group", show=user_settings["pipeline"] == "SDImg2Img"):
+        dpg.add_input_float(
+            label="Denoising Strength",
+            default_value=0.80,
+            min_value=0.00,
+            max_value=1.00,
+            format="%.01f",
+            width=config.ITEM_WIDTH,
+            tag="strength",
+        )
+        dpg.add_text(
+            "The amount of noise added to the base image in img2img.",
+            parent=dpg.add_tooltip("strength"),
+        )
 
     dpg.add_input_float(
         label="Guidance Scale",
@@ -440,21 +445,22 @@ with dpg.window(tag="window"):
     )
 
     with dpg.group(pos=(440, 27), show=False, tag="output_image_group"):
-        with dpg.group(horizontal=True, tag="output_image_selection"):
+        # Needed to be able to add output image on a new line before this group.
+        with dpg.group(tag="output_image_group2", horizontal=True):
             dpg.add_button(label="<", tag="previous", callback=switch_image_callback)
             dpg.add_button(label=">", tag="next", callback=switch_image_callback)
             dpg.add_text(tag="output_image_index")
 
-        with dpg.group(tag="output_image_btns"):
-            dpg.add_button(
-                label="Use In Img2Img",
-                tag="use_in_img2img_btn",
-                callback=use_in_img2img_callback,
-            )
-            dpg.add_button(
-                label="Reuse Seed",
-                callback=reuse_seed_callback,
-            )
+            with dpg.group(tag="output_image_btns", horizontal=True):
+                dpg.add_button(
+                    label="Use In Img2Img",
+                    tag="use_in_img2img_btn",
+                    callback=use_in_img2img_callback,
+                )
+                dpg.add_button(
+                    label="Reuse Seed",
+                    callback=reuse_seed_callback,
+                )
 
     dpg.bind_font(default_font)
 

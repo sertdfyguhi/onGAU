@@ -44,6 +44,7 @@ class SettingsManager:
                 "seed",
                 "pipeline",
                 "guidance_scale",
+                "strength",
                 "step_count",
                 "upscale_amount",
                 "image_amount",
@@ -95,6 +96,7 @@ class SettingsManager:
         # options that do need to be converted to a string
         for op in [
             "guidance_scale",
+            "strength",
             "step_count",
             "image_amount",
             "width",

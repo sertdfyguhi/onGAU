@@ -227,7 +227,7 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
         dpg.add_image(
             texture_tag,
             tag="output_image_item",
-            before="output_image_selection",
+            before="output_image_group2",
             parent="output_image_group",
             width=img_w,
             height=img_h,
@@ -319,21 +319,22 @@ def generate_image_callback():
         except ValueError as e:
             logger.error(str(e))
 
-    dpg.show_item("gen_status_group")
-    dpg.show_item("progress_bar")
-    dpg.hide_item("info_group")
-    dpg.hide_item("output_button_group")
-    dpg.hide_item("output_image_group")
-    dpg.hide_item("status_text")
+    def prepare_UI():
+        dpg.show_item("gen_status_group")
+        dpg.show_item("progress_bar")
+        dpg.hide_item("info_group")
+        dpg.hide_item("output_button_group")
+        dpg.hide_item("output_image_group")
+        dpg.hide_item("status_text")
 
-    for child in dpg.get_item_children("advanced_config")[1]:
-        # Ignore tooltips.
-        if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
-            continue
+        for child in dpg.get_item_children("advanced_config")[1]:
+            # Ignore tooltips.
+            if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
+                continue
 
-        dpg.disable_item(child)
+            dpg.disable_item(child)
 
-    dpg.disable_item("generate_btn")
+        dpg.disable_item("generate_btn")
 
     def finish_generation_callback(
         images: list, total_time: float, killed: bool = False
@@ -394,9 +395,13 @@ Total time: {total_time:.1f}s"""
 
     # Start thread to generate image.
     if type(imagen) == Text2Img:
-        pipelines.text2img(imagen, finish_generation_callback, gen_progress_callback)
+        pipelines.text2img(
+            imagen, prepare_UI, finish_generation_callback, gen_progress_callback
+        )
     else:
-        pipelines.img2img(imagen, finish_generation_callback, gen_progress_callback)
+        pipelines.img2img(
+            imagen, prepare_UI, finish_generation_callback, gen_progress_callback
+        )
 
 
 def switch_image_callback(tag: str):
@@ -464,15 +469,17 @@ def change_pipeline_callback(_, pipeline: str):
     update_window_title(f"Loading {pipeline}...")
 
     # Clear old imagen object.
-    del imagen._pipeline
+    # del imagen._pipeline
 
     match pipeline:
         case "Text2Img":
             imagen = Text2Img.from_class(imagen)
             dpg.hide_item("base_image_group")
+            dpg.hide_item("strength_group")
         case "SDImg2Img":
             imagen = SDImg2Img.from_class(imagen)
             dpg.show_item("base_image_group")
+            dpg.show_item("strength_group")
             base_image_path_callback()
 
     dpg.hide_item("status_text")

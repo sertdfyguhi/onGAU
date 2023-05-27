@@ -62,7 +62,7 @@ def save_image(image_info: GeneratedImage, file_path: str):
     ):
         scheduler_name += "++"
 
-    metadata.add_text("model", info.model)
+    metadata.add_text("model", info.model_path)
     metadata.add_text("prompt", info.prompt)
     metadata.add_text("negative_prompt", info.negative_prompt)
     metadata.add_text("guidance_scale", str(info.guidance_scale))
@@ -94,6 +94,7 @@ def save_image(image_info: GeneratedImage, file_path: str):
     )
 
     if info.pipeline == StableDiffusionImg2ImgPipeline:
+        metadata.add_text("strength", str(info.strength))
         metadata.add_text("base_image_path", info.base_image_path)
 
     image_info.image.save(file_path, pnginfo=metadata)
