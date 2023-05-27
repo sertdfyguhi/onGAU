@@ -424,6 +424,9 @@ def checkbox_callback(tag: str, value: bool):
     Callback for most checkbox settings.
     Enables and disables settings based on the tag.
     """
+    if getattr(imagen, f"{tag}_enabled", None) == value:
+        return
+
     func_name = f'{"enable_" if value else "disable_"}{tag}'
 
     try:
@@ -788,6 +791,7 @@ def load_save_callback(name: str):
     load_settings(settings_manager.get_settings(name, full=True))
 
     dpg.hide_item("status_text")
+    logger.success(f"Successfully loaded save {name}.")
 
 
 def update_delete_save_input():
@@ -814,12 +818,14 @@ def save_settings_callback():
     )
 
     update_delete_save_input()
-    saves_tags[name] = dpg.add_menu_item(
-        label=name,
-        before="delete_save_button",
-        callback=lambda: load_save_callback(name),
-        parent="saves_menu",
-    )
+
+    if name not in saves_tags:
+        saves_tags[name] = dpg.add_menu_item(
+            label=name,
+            before="delete_save_button",
+            callback=lambda: load_save_callback(name),
+            parent="saves_menu",
+        )
     dpg.hide_item("save_settings_dialog")
 
 
@@ -838,6 +844,7 @@ def delete_save_callback(name: str):
 
     dpg.delete_item(saves_tags[name])
     del saves_tags[name]
+
     dpg.hide_item("delete_save_dialog")
     logger.success(f"Successfully deleted {name}.")
 
