@@ -263,7 +263,8 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
 
     # Calculate the percentage
     progress = step / step_count
-    overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count}"
+    eta = (step_count - step) * elapsed_time
+    overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count} ETA: {eta:.1f}s"
 
     print(
         f"{logger.create('Generating... ', [logger.INFO, logger.BOLD])}{logger.create(overlay, [logger.INFO])}"
@@ -361,7 +362,8 @@ def generate_image_callback():
         if not images:
             return
         elif isinstance(images, Exception):
-            status(str(images), logger.error)
+            status(f"Generation Error: {images}", None)
+            logger.error(str(images))
             return
 
         # Add an "s" if there are more than 1 image.

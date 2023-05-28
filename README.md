@@ -42,7 +42,7 @@ python3 onGAU/main.py
 - [x] Add Clip Skip parameter
 - [x] Add model CPU offloading
 - [x] Average step time
-- [ ] Generation Progress ETA
+- [x] Generation Progress ETA
 - [x] Load .ckpt in app
 - [x] Load .safetensors lora in app
 - [ ] Implement lora correctly and fully
