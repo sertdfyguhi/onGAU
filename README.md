@@ -50,7 +50,7 @@ python3 onGAU/main.py
 - [x] Denoising strength
 - [ ] Change embedding models and loras in app
 - [ ] Rework and organize UI
-- [ ] Merging models
+- [x] Merging models
 - [ ] Add controlnet support
 - [ ] Add super resolution (ESRGAN/SwinIR) support
   - [x] Add ESRGAN support

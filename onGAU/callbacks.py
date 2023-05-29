@@ -1,10 +1,12 @@
 from imagen import Text2Img, SDImg2Img, ESRGAN, GeneratedImage, ESRGANUpscaledImage
+from imagen.utils import InterpolationFuncs, merge
 from settings_manager import SettingsManager
 from texture_manager import TextureManager
 import logger, config, pipelines
 
 from PIL import Image, UnidentifiedImageError
 from diffusers import schedulers
+from threading import Thread
 import dearpygui.dearpygui as dpg
 import imagesize
 import utils
@@ -291,7 +293,7 @@ def load_model(model_path: str):
     ) as e:  # When compel prompt weighting is enabled / model is not found.
         status(str(e), logger.error)
         update_window_title()
-        return False
+        return True
     except ValueError as e:  # When LPWSD pipeline is enabled.
         logger.warn(str(e))
         dpg.set_value("lpwsd_pipeline", False)
@@ -618,8 +620,6 @@ def interrupt_callback():
         dpg.set_value("output_image_index", texture_manager.to_counter_string())
 
         dpg.show_item("output_button_group")
-
-        dpg.hide_item("output_image_btns")
         dpg.show_item("output_image_group")
 
 
@@ -680,13 +680,18 @@ def load_settings(settings: dict):
             continue
 
         if setting == "model" and value != imagen.model_path:
-            load_model(value)
+            if load_model(value):
+                continue
             dpg.set_value("model", value)
         elif setting == "scheduler":
             load_scheduler(value)
             dpg.set_value(setting, value)
         elif setting == "pipeline":
-            use_LPWSD = settings["lpwsd_pipeline"] == "True"
+            use_LPWSD = (
+                settings["lpwsd_pipeline"] == "True"
+                if "lpwsd_pipeline" in settings
+                else value == "StableDiffusionLongPromptWeightingPipeline"
+            )
 
             if (
                 value in [imagen.__class__.__name__, imagen.pipeline.__name__]
@@ -771,13 +776,17 @@ def load_from_image_callback():
         status("Image does not exist or could not be read.", logger.error)
         return
 
+    settings = image.info
+    if not dpg.get_value("load_model_checkbox"):
+        settings.pop("model", None)
+
     dpg.set_value("width", image.size[0])
     dpg.set_value("height", image.size[1])
 
     dpg.hide_item("image_load_dialog")
     dpg.hide_item("status_text")
 
-    load_settings(image.info)
+    load_settings(settings)
 
 
 def kill_gen_callback():
@@ -860,3 +869,79 @@ def delete_save_callback(name: str):
 def reuse_seed_callback():
     """Callback to reuse seed of currently shown image for generation."""
     dpg.set_value("seed", texture_manager.current()[1].seed)
+
+
+def toggle_merge_window_callback():
+    """Callback to toggle the visibility of the checkpoint merger window."""
+    dpg.set_value("merge_path_input", os.path.dirname(imagen.model_path))
+    dpg.set_value("model1_input", imagen.model_path)
+    toggle_item("merge_window")
+
+
+INTERP_FUNC_MAPPING = {
+    "Weighted Sum": InterpolationFuncs.weighted_sum,
+    "Add Difference": InterpolationFuncs.add_diff,
+    "Sigmoid": InterpolationFuncs.sigmoid,
+    "Inverse Sigmoid": InterpolationFuncs.inv_sigmoid,
+}
+
+
+def merge_checkpoint_callback():
+    """Callback to merge models."""
+    model1, model2, model3 = dpg.get_values(
+        ["model1_input", "model2_input", "model3_input"]
+    )
+
+    # Get interpolation function from text value.
+    interp_func = INTERP_FUNC_MAPPING[dpg.get_value("interp_method_input")]
+    path = utils.append_dir_if_startswith(
+        dpg.get_value("merge_path_input"), FILE_DIR, "models/"
+    )
+    ignore_te = dpg.get_value("ignore_te")
+    alpha = dpg.get_value("alpha")
+
+    if model1 != imagen.model_path and load_model(model1):
+        return
+
+    dpg.set_item_label("merge_button", "Merging...")
+    logger.info(f"Merging models...")
+
+    try:
+        merge(
+            alpha,
+            interp_func,
+            imagen,
+            model2,
+            model3,
+            ignore_te,
+        )
+
+        # workaround for extreme step time increase due to merging
+        # TODO: try to actually fix the bug
+        del imagen._pipeline
+        imagen = Text2Img.from_class(imagen)
+    except FileNotFoundError as e:
+        status(str(e), logger.error)
+        dpg.set_item_label("merge_button", "Merge")
+        return
+
+    dpg.set_item_label("merge_button", "Merge")
+
+    if os.path.exists(path):
+        while True:
+            save_option = input(f"{path} already exists. Overwrite (y/n): ").lower()
+
+            if save_option in ["y", "yes"]:
+                break
+            else:
+                path = input("New path: ")
+                if not os.path.exists(path):
+                    break
+    else:
+        os.mkdir(path)
+
+    imagen.save_weights(path)
+    imagen.model_path = path
+    dpg.set_value("model", str(path))
+
+    logger.success("Successfully merged models.")

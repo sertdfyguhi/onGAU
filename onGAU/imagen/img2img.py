@@ -130,7 +130,7 @@ class SDImg2Img(BaseImagen):
             "guidance_scale": guidance_scale,
             "strength": strength,
             "num_images_per_prompt": image_amount,
-            "callback": callback_wrapper,
+            "callback": callback_wrapper if progress_callback else None,
         }
 
         if self.lpw_stable_diffusion_used:

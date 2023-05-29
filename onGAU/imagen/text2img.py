@@ -45,7 +45,6 @@ class Text2Img(BaseImagen):
         prompt: str,
         negative_prompt: str = "",
         size: tuple[int, int] | list[int, int] = (512, 512),
-        strength: float = 0.8,
         guidance_scale: float = 8.0,
         step_count: int = 25,
         image_amount: int = 1,
@@ -112,7 +111,7 @@ class Text2Img(BaseImagen):
             "num_inference_steps": step_count,
             "guidance_scale": guidance_scale,
             "num_images_per_prompt": image_amount,
-            "callback": callback_wrapper,
+            "callback": callback_wrapper if progress_callback else None,
         }
 
         if self.lpw_stable_diffusion_used:

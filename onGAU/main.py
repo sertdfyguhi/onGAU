@@ -8,6 +8,14 @@ import atexit
 
 CENTER = (config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2)
 
+
+def add_tooltip(text: str):
+    dpg.add_text(
+        text,
+        parent=dpg.last_item(),
+    )
+
+
 # Register UI font.
 with dpg.font_registry():
     default_font = dpg.add_font(FONT, config.FONT_SIZE)
@@ -31,8 +39,9 @@ with dpg.window(
     dpg.add_input_text(
         label="Image Path",
         tag="image_path_input",
-        width=config.ITEM_WIDTH - config.FONT_SIZE * 5,
+        width=config.ITEM_WIDTH * 0.75,
     )
+    dpg.add_checkbox(label="Load Model", tag="load_model_checkbox", default_value=True)
 
     with dpg.group(horizontal=True):
         dpg.add_button(
@@ -107,15 +116,53 @@ with dpg.window(label="Upscale", show=False, tag="upscale_window", pos=CENTER):
         width=config.ITEM_WIDTH * 0.75,
         tag="upscale_amount",
     )
-    dpg.add_text(
-        "The amount to upscale the image.",
-        parent=dpg.add_tooltip("upscale_amount"),
-    )
+    add_tooltip("The amount to upscale the image.")
 
     dpg.add_button(
         label="Upscale Image",
         tag="upscale_button",
         callback=upscale_image_callback,
+    )
+
+with dpg.window(label="Model Merger", show=False, tag="merge_window", pos=CENTER):
+    dpg.add_input_text(
+        label="Merge Path", width=config.ITEM_WIDTH, tag="merge_path_input"
+    )
+    dpg.add_input_text(label="Model 1", tag="model1_input", width=config.ITEM_WIDTH)
+    dpg.add_input_text(label="Model 2", tag="model2_input", width=config.ITEM_WIDTH)
+    dpg.add_input_text(label="Model 3", tag="model3_input", width=config.ITEM_WIDTH)
+
+    dpg.add_combo(
+        items=[
+            "Weighted Sum",
+            "Add Difference",
+            "Sigmoid",
+            "Inverse Sigmoid",
+        ],
+        default_value="Weighted Sum",
+        label="Interpolation Method",
+        tag="interp_method_input",
+        width=config.ITEM_WIDTH,
+    )
+    add_tooltip("The interpolation method to use to merge the models.")
+
+    dpg.add_slider_double(
+        label="Alpha",
+        max_value=1.00,
+        min_value=0.00,
+        default_value=0.80,
+        format="%.01f",
+        tag="alpha",
+    )
+    add_tooltip("The ratio to merge the models. 0 makes it the base model.")
+
+    dpg.add_checkbox(label="Ignore Text Encoder", default_value=True, tag="ignore_te")
+
+    dpg.add_button(
+        label="Merge",
+        width=config.ITEM_WIDTH / 2,
+        callback=merge_checkpoint_callback,
+        tag="merge_button",
     )
 
 # Main window.
@@ -130,18 +177,23 @@ with dpg.window(tag="window"):
             dpg.add_menu_item(
                 label="Delete Save...",
                 tag="delete_save_button",
-                callback=lambda: dpg.show_item("delete_save_dialog"),
+                callback=lambda: toggle_item("delete_save_dialog"),
             )
             dpg.add_menu_item(
                 label="Save Current Settings...",
-                callback=lambda: dpg.show_item("save_settings_dialog"),
+                callback=lambda: toggle_item("save_settings_dialog"),
             )
 
         with dpg.menu(label="File"):
             dpg.add_menu_item(
                 label="Load Settings from Image",
-                callback=lambda: dpg.show_item("image_load_dialog"),
+                callback=lambda: toggle_item("image_load_dialog"),
             )
+
+        dpg.add_menu_item(
+            label="Merge",
+            callback=toggle_merge_window_callback,
+        )
 
     dpg.add_input_text(
         label="Model",
@@ -149,9 +201,8 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="model",
     )
-    dpg.add_text(
-        "The path to a Stable Diffusion model to use. (HuggingFace model or local model)",
-        parent=dpg.add_tooltip("model"),
+    add_tooltip(
+        "The path to a Stable Diffusion model to use. (HuggingFace model or local model)"
     )
 
     dpg.add_input_text(
@@ -160,10 +211,7 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="prompt",
     )
-    dpg.add_text(
-        "The instructions of the generated image.",
-        parent=dpg.add_tooltip("prompt"),
-    )
+    add_tooltip("The instructions of the generated image.")
 
     dpg.add_input_text(
         label="Negative Prompt",
@@ -171,10 +219,7 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="negative_prompt",
     )
-    dpg.add_text(
-        "The instructions of what to remove of the generated image.",
-        parent=dpg.add_tooltip("negative_prompt"),
-    )
+    add_tooltip("The instructions of what to remove of the generated image.")
 
     dpg.add_input_int(
         label="Width",
@@ -184,10 +229,7 @@ with dpg.window(tag="window"):
         callback=image_size_calc_callback,
         tag="width",
     )
-    dpg.add_text(
-        "The image width of the output image.",
-        parent=dpg.add_tooltip("width"),
-    )
+    add_tooltip("The image width of the output image.")
 
     dpg.add_input_int(
         label="Height",
@@ -197,10 +239,7 @@ with dpg.window(tag="window"):
         callback=image_size_calc_callback,
         tag="height",
     )
-    dpg.add_text(
-        "The image height of the output image.",
-        parent=dpg.add_tooltip("height"),
-    )
+    add_tooltip("The image height of the output image.")
 
     with dpg.group(tag="strength_group", show=user_settings["pipeline"] == "SDImg2Img"):
         dpg.add_input_float(
@@ -212,10 +251,7 @@ with dpg.window(tag="window"):
             width=config.ITEM_WIDTH,
             tag="strength",
         )
-        dpg.add_text(
-            "The amount of noise added to the base image in img2img.",
-            parent=dpg.add_tooltip("strength"),
-        )
+        add_tooltip("The amount of noise added to the base image in img2img.")
 
     dpg.add_input_float(
         label="Guidance Scale",
@@ -226,10 +262,7 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="guidance_scale",
     )
-    dpg.add_text(
-        "How closely SD should follow your prompt.",
-        parent=dpg.add_tooltip("guidance_scale"),
-    )
+    add_tooltip("How closely SD should follow your prompt.")
 
     dpg.add_input_int(
         label="Step Count",
@@ -239,9 +272,8 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="step_count",
     )
-    dpg.add_text(
-        "The number of iterations that SD runs over the image. Higher number usually gets you a better image.",
-        parent=dpg.add_tooltip("step_count"),
+    add_tooltip(
+        "The number of iterations that SD runs over the image. Higher number usually gets you a better image."
     )
 
     dpg.add_input_int(
@@ -252,10 +284,7 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="image_amount",
     )
-    dpg.add_text(
-        "The amount of images to generate.",
-        parent=dpg.add_tooltip("image_amount"),
-    )
+    add_tooltip("The amount of images to generate.")
 
     dpg.add_input_text(
         label="Seed",
@@ -263,9 +292,8 @@ with dpg.window(tag="window"):
         width=config.ITEM_WIDTH,
         tag="seed",
     )
-    dpg.add_text(
-        "The number to initialize the generation. Leaving it empty chooses it randomly.",
-        parent=dpg.add_tooltip("seed"),
+    add_tooltip(
+        "The number to initialize the generation. Leaving it empty chooses it randomly."
     )
 
     # file dialog to be used
@@ -283,10 +311,7 @@ with dpg.window(tag="window"):
             tag="base_image_path",
             callback=base_image_path_callback,
         )
-        dpg.add_text(
-            "The path of the starting image to use in img2img.",
-            parent=dpg.add_tooltip("base_image_path"),
-        )
+        add_tooltip("The path of the starting image to use in img2img.")
 
     dpg.add_button(
         label="Advanced Configuration", callback=lambda: toggle_item("advanced_config")
@@ -301,10 +326,7 @@ with dpg.window(tag="window"):
             callback=change_pipeline_callback,
             tag="pipeline",
         )
-        dpg.add_text(
-            "The pipeline to use.",
-            parent=dpg.add_tooltip("pipeline"),
-        )
+        add_tooltip("The pipeline to use.")
 
         dpg.add_combo(
             label="Scheduler",
@@ -313,10 +335,7 @@ with dpg.window(tag="window"):
             width=config.ITEM_WIDTH,
             tag="scheduler",
         )
-        dpg.add_text(
-            "The sampling method to use.",
-            parent=dpg.add_tooltip("scheduler"),
-        )
+        add_tooltip("The sampling method to use.")
 
         dpg.add_input_int(
             label="Clip Skip",
@@ -324,10 +343,7 @@ with dpg.window(tag="window"):
             width=config.ITEM_WIDTH,
             tag="clip_skip",
         )
-        dpg.add_text(
-            "The amount CLIP layers to skip.",
-            parent=dpg.add_tooltip("clip_skip"),
-        )
+        add_tooltip("The amount CLIP layers to skip.")
 
         dpg.add_checkbox(
             label="Disable Safety Checker",
@@ -335,10 +351,7 @@ with dpg.window(tag="window"):
             default_value=not imagen.safety_checker_enabled,
             callback=lambda tag, value: checkbox_callback(tag, not value),
         )
-        dpg.add_text(
-            "Check for NSFW image.",
-            parent=dpg.add_tooltip("safety_checker"),
-        )
+        add_tooltip("Check for NSFW image.")
 
         dpg.add_checkbox(
             label="Enable Attention Slicing",
@@ -346,9 +359,8 @@ with dpg.window(tag="window"):
             default_value=imagen.attention_slicing_enabled,
             callback=checkbox_callback,
         )
-        dpg.add_text(
-            "Slices the computation into multiple steps. Increases performance on MPS.",
-            parent=dpg.add_tooltip("attention_slicing"),
+        add_tooltip(
+            "Slices the computation into multiple steps. Increases performance on MPS."
         )
 
         dpg.add_checkbox(
@@ -357,10 +369,7 @@ with dpg.window(tag="window"):
             default_value=imagen.vae_slicing_enabled,
             callback=checkbox_callback,
         )
-        dpg.add_text(
-            "VAE decodes one image at a time.",
-            parent=dpg.add_tooltip("vae_slicing"),
-        )
+        add_tooltip("VAE decodes one image at a time.")
 
         dpg.add_checkbox(
             label="Enable xFormers Memory Efficient Attention",
@@ -375,9 +384,8 @@ with dpg.window(tag="window"):
             default_value=imagen.model_cpu_offload_enabled,
             callback=checkbox_callback,
         )
-        dpg.add_text(
-            "Offloads the model onto the CPU. Reduces memory usage while keeping performance at best.",
-            parent=dpg.add_tooltip("model_cpu_offload"),
+        add_tooltip(
+            "Offloads the model onto the CPU. Reduces memory usage while keeping performance at best."
         )
 
         dpg.add_checkbox(
@@ -386,9 +394,8 @@ with dpg.window(tag="window"):
             default_value=imagen.compel_weighting_enabled,
             callback=checkbox_callback,
         )
-        dpg.add_text(
-            "Use compel prompt weighting. + to increase weight and - to decrease.",
-            parent=dpg.add_tooltip("compel_weighting"),
+        add_tooltip(
+            "Use compel prompt weighting. + to increase weight and - to decrease."
         )
 
         dpg.add_checkbox(
@@ -397,9 +404,8 @@ with dpg.window(tag="window"):
             default_value=imagen.lpw_stable_diffusion_used,
             callback=lpwsd_callback,
         )
-        dpg.add_text(
-            "Use LPWSD pipeline. Adds prompt weighting as seen in A1111's webui and long prompts.",
-            parent=dpg.add_tooltip("lpwsd_pipeline"),
+        add_tooltip(
+            "Use LPWSD pipeline. Adds prompt weighting as seen in A1111's webui and long prompts."
         )
 
         dpg.add_button(
@@ -407,10 +413,7 @@ with dpg.window(tag="window"):
             tag="save_model",
             callback=save_model_callback,
         )
-        dpg.add_text(
-            "Used to convert a ckpt or safetensors file into diffusers format.",
-            parent=dpg.add_tooltip("save_model"),
-        )
+        add_tooltip("Used to convert a ckpt or safetensors file into diffusers format.")
 
     dpg.add_button(
         label="Generate Image", tag="generate_btn", callback=generate_image_callback

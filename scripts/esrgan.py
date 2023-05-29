@@ -7,7 +7,7 @@ from onGAU.imagen import ESRGAN
 from PIL import Image
 import time
 
-parser = ArgumentParser()
+parser = ArgumentParser("ESRGAN Upscale Script")
 parser.add_argument("--model", required=True, type=str)
 parser.add_argument("--image", required=True, type=str)
 parser.add_argument("--outpath", required=True, type=str)
