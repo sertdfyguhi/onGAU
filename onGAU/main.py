@@ -12,7 +12,7 @@ CENTER = (config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2)
 def add_tooltip(text: str):
     dpg.add_text(
         text,
-        parent=dpg.last_item(),
+        parent=dpg.add_tooltip(dpg.last_item()),
     )
 
 
