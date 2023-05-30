@@ -146,12 +146,13 @@ with dpg.window(label="Model Merger", show=False, tag="merge_window", pos=CENTER
     )
     add_tooltip("The interpolation method to use to merge the models.")
 
-    dpg.add_slider_double(
+    dpg.add_slider_float(
         label="Alpha",
         max_value=1.00,
         min_value=0.00,
         default_value=0.80,
-        format="%.01f",
+        clamped=True,
+        format="%.2f",
         tag="alpha",
     )
     add_tooltip("The ratio to merge the models. 0 makes it the base model.")
@@ -247,7 +248,7 @@ with dpg.window(tag="window"):
             default_value=0.80,
             min_value=0.00,
             max_value=1.00,
-            format="%.01f",
+            format="%.2f",
             width=config.ITEM_WIDTH,
             tag="strength",
         )

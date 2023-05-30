@@ -54,6 +54,7 @@ class SDImg2Img(BaseImagen):
             for i, image in enumerate(images)
         ]
 
+    @torch.no_grad()
     def generate_image(
         self,
         base_image: Image,

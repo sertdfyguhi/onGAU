@@ -104,6 +104,7 @@ class ESRGAN:
         """Set the amount of tiles to create."""
         self._esrgan.tile_size = tile_size
 
+    @torch.no_grad()
     def upscale_image(
         self, generated_image: GeneratedImage | Image.Image, upscale: int | None = None
     ) -> ESRGANUpscaledImage:

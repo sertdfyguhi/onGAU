@@ -888,6 +888,8 @@ INTERP_FUNC_MAPPING = {
 
 def merge_checkpoint_callback():
     """Callback to merge models."""
+    global imagen
+
     model1, model2, model3 = dpg.get_values(
         ["model1_input", "model2_input", "model3_input"]
     )
@@ -907,6 +909,7 @@ def merge_checkpoint_callback():
     logger.info(f"Merging models...")
 
     try:
+        # TODO: fix performance issue
         merge(
             alpha,
             interp_func,
@@ -915,11 +918,6 @@ def merge_checkpoint_callback():
             model3,
             ignore_te,
         )
-
-        # workaround for extreme step time increase due to merging
-        # TODO: try to actually fix the bug
-        del imagen._pipeline
-        imagen = Text2Img.from_class(imagen)
     except FileNotFoundError as e:
         status(str(e), logger.error)
         dpg.set_item_label("merge_button", "Merge")
