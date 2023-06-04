@@ -1,5 +1,6 @@
 from . import utils
 
+from diffusers.utils import get_class_from_dynamic_module
 from diffusers import SchedulerMixin, DiffusionPipeline
 from huggingface_hub.utils import HFValidationError
 from dataclasses import dataclass
@@ -49,6 +50,12 @@ class GeneratedLatents:
     embeddings: list[str]
     width: int
     height: int
+
+
+# Temporary. Custom pipelines aren't supported in from_ckpt.
+StableDiffusionLongPromptWeightingPipeline = get_class_from_dynamic_module(
+    "lpw_stable_diffusion", module_file="lpw_stable_diffusion.py"
+)
 
 
 class BaseImagen:
@@ -130,15 +137,10 @@ class BaseImagen:
         """Base function to set the model of the pipeline."""
         self.model_path = model
 
-        if use_lpw_stable_diffusion:
-            if self.compel_weighting_enabled:
-                raise RuntimeError(
-                    "Compel prompt weighting cannot be used when using LPWSD pipeline."
-                )
-            elif model.endswith((".ckpt", ".safetensors")):
-                raise ValueError(
-                    "LPWSD pipeline is not compatible with a .ckpt or .safetensors file."
-                )
+        if use_lpw_stable_diffusion and self.compel_weighting_enabled:
+            raise RuntimeError(
+                "Compel prompt weighting cannot be used when using LPWSD pipeline."
+            )
 
         orig_scheduler = None
 
@@ -156,7 +158,7 @@ class BaseImagen:
         try:
             self._pipeline = (
                 pipeline.from_ckpt
-                if model.endswith((".ckpt", ".safetensors"))
+                if (is_file := model.endswith((".ckpt", ".safetensors")))
                 else pipeline.from_pretrained
             )(
                 model,
@@ -164,6 +166,12 @@ class BaseImagen:
                 if use_lpw_stable_diffusion
                 else None,
             )
+
+            if is_file and use_lpw_stable_diffusion:
+                print(self._pipeline.components)
+                self._pipeline = StableDiffusionLongPromptWeightingPipeline(
+                    *self._pipeline.components
+                )
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 

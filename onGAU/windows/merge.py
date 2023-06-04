@@ -1,3 +1,4 @@
+from imagen.utils import InterpolationFuncs, merge
 from callbacks import *
 from .utils import *
 import config

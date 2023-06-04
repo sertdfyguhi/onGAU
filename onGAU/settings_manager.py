@@ -46,21 +46,29 @@ class SettingsManager:
                 "guidance_scale",
                 "strength",
                 "step_count",
-                "upscale_amount",
                 "image_amount",
                 "width",
                 "height",
                 "lpwsd_pipeline",
+                "u_step_count",
+                "u_guidance_scale",
+                "upscale_amount",
+                "upscaler_type",
             ]
         }
 
         for op in [
+            "upscale_model",
             "scheduler",
             "attention_slicing",
             "vae_slicing",
             "model_cpu_offload",
             "xformers_memory_attention",
             "compel_weighting",
+            "u_attention_slicing",
+            "u_vae_slicing",
+            "u_model_cpu_offload",
+            "u_xformers_memory_attention",
         ]:
             settings[op] = self._config.get(section, op, fallback=None)
 
@@ -68,9 +76,11 @@ class SettingsManager:
             section, "safety_checker", fallback="True"
         )
 
-        settings["base_image_path"] = self._config.get(
-            section, "base_image_path", fallback=""
-        )
+        for op in [
+            "base_image_path",
+            "upscale_model",
+        ]:
+            settings[op] = self._config.get(section, op, fallback="")
 
         settings["clip_skip"] = self._config.get(section, "clip_skip", fallback=0)
 
@@ -89,6 +99,8 @@ class SettingsManager:
             "pipeline",
             "scheduler",
             "base_image_path",
+            "upscale_model",
+            "upscaler_type",
         ]:
             # print(op, dpg.get_value(op))
             self._config[section][op] = dpg.get_value(op)
@@ -108,8 +120,15 @@ class SettingsManager:
             "vae_slicing",
             "model_cpu_offload",
             "xformers_memory_attention",
+            "u_step_count",
+            "u_guidance_scale",
+            "u_attention_slicing",
+            "u_vae_slicing",
+            "u_model_cpu_offload",
+            "u_xformers_memory_attention",
             "compel_weighting",
             "lpwsd_pipeline",
+            "upscale_amount",
         ]:
             self._config[section][op] = str(dpg.get_value(op))
 

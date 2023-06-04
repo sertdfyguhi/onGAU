@@ -7,6 +7,7 @@ import config
 import dearpygui.dearpygui as dpg
 import pyperclip
 import atexit
+import copy
 
 
 # Register UI font.
@@ -32,19 +33,24 @@ with dpg.window(
     dpg.add_input_text(
         label="Image Path",
         tag="image_path_input",
-        width=config.ITEM_WIDTH * 0.75,
+        width=config.ITEM_WIDTH,
     )
-    dpg.add_checkbox(label="Load Model", tag="load_model_checkbox", default_value=True)
+    dpg.add_checkbox(
+        label="Ignore Model", tag="ignore_model_checkbox", default_value=True
+    )
+    dpg.add_checkbox(
+        label="Ignore Pipeline", tag="ignore_pipeline_checkbox", default_value=False
+    )
 
     with dpg.group(horizontal=True):
         dpg.add_button(
             label="Load",
-            width=config.ITEM_WIDTH / 2 - 5,
+            width=config.ITEM_WIDTH / 2 + 35,
             callback=load_from_image_callback,
         )
         dpg.add_button(
             label="Cancel",
-            width=config.ITEM_WIDTH / 2 - 5,
+            width=config.ITEM_WIDTH / 2 + 35,
             callback=lambda: dpg.hide_item("image_load_dialog"),
         )
 
@@ -52,7 +58,7 @@ with dpg.window(
 with dpg.window(
     label="Save settings",
     tag="save_settings_dialog",
-    pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
+    pos=CENTER,
     modal=True,
 ):
     dpg.add_input_text(
@@ -80,7 +86,7 @@ with dpg.window(
 with dpg.window(
     label="Delete save",
     tag="delete_save_dialog",
-    pos=(config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2),
+    pos=CENTER,
     modal=True,
 ):
     dpg.add_combo(
@@ -110,7 +116,7 @@ with dpg.window(tag="window"):
         with dpg.menu(label="Saves", tag="saves_menu"):
             for name in settings_manager.settings:
                 saves_tags[name] = dpg.add_menu_item(
-                    label=name, callback=lambda: load_save_callback(name)
+                    label=name, callback=(lambda n: lambda: load_save_callback(n))(name)
                 )
 
             dpg.add_menu_item(

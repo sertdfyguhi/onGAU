@@ -1,4 +1,4 @@
-from imagen import GeneratedImage, ESRGANUpscaledImage
+from imagen import GeneratedImage, GeneratedLatents, LatentUpscaledImage
 
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL.PngImagePlugin import PngInfo
@@ -47,10 +47,20 @@ def save_image(image_info: GeneratedImage, file_path: str):
     metadata = PngInfo()
     info = image_info
 
-    if type(image_info) == ESRGANUpscaledImage:
-        metadata.add_text("upscale_model", image_info.model)
-        metadata.add_text("upscale_amount", str(image_info.upscale_amount))
-        info = image_info.original_image
+    if (info_t := type(info)) not in [GeneratedImage, GeneratedLatents]:
+        metadata.add_text(
+            "upscaler_type",
+            "Latent" if (is_latent := info_t == LatentUpscaledImage) else "RealESRGAN",
+        )
+        metadata.add_text("upscale_model", info.model_path)
+
+        if is_latent:
+            metadata.add_text("u_step_count", str(info.step_count))
+            metadata.add_text("u_guidance_scale", str(info.guidance_scale))
+        else:
+            metadata.add_text("upscale_amount", str(info.upscale_amount))
+
+        info = info.original_image
 
     scheduler_name = info.scheduler.__name__
     if info.karras_sigmas_used:

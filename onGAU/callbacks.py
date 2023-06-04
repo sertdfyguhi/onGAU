@@ -1,5 +1,4 @@
-from imagen import Text2Img, SDImg2Img, ESRGAN, GeneratedImage, ESRGANUpscaledImage
-from imagen.utils import InterpolationFuncs, merge
+from imagen import Text2Img, SDImg2Img, GeneratedImage
 from settings_manager import SettingsManager
 from texture_manager import TextureManager
 import logger, config, pipelines
@@ -64,20 +63,15 @@ def load_scheduler(scheduler: str):
 settings_manager = SettingsManager(config.USER_SETTINGS_FILE)
 user_settings = settings_manager.get_settings("main")
 
-use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
+use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
 
 
 logger.info(f"Loading {model_path}...")
 
 try:
     imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
-except ValueError as e:
-    logger.warn(str(e))
-
-    # logger.info(f"Loading {model_path}...")
-    imagen = imagen_class(model_path, config.DEVICE, False)
 except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
@@ -90,11 +84,11 @@ except FileNotFoundError:
 
 imagen.max_embeddings_multiples = config.MAX_EMBEDDINGS_MULTIPLES
 
-if user_settings["safety_checker"] == "True":
-    imagen.disable_safety_checker()
-
 if scheduler := user_settings["scheduler"]:
     load_scheduler(scheduler)
+
+if user_settings["safety_checker"] == "True":
+    imagen.disable_safety_checker()
 
 if (user_settings["attention_slicing"] == "True") or (
     user_settings["attention_slicing"] is None and imagen.device == "mps"
@@ -252,11 +246,11 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
         # Continuously check for restart.
         while gen_status == 2:
             # Sleep to avoid using too much resources.
-            time.sleep(1)
+            time.sleep(0.5)
 
         # If exit generation is called.
         if gen_status == 3:
-            raise RuntimeError("Generation exited.", texture_manager.images)
+            raise pipelines.GenerationExit("Generation exited.", texture_manager.images)
 
         gen_status = 0
 
@@ -293,10 +287,6 @@ def load_model(model_path: str):
         status(str(e), logger.error)
         update_window_title()
         return True
-    except ValueError as e:  # When LPWSD pipeline is enabled.
-        logger.warn(str(e))
-        dpg.set_value("lpwsd_pipeline", False)
-        imagen.set_model(model_path, False)
 
     dpg.hide_item("status_text")
     update_window_title()
@@ -531,12 +521,7 @@ def lpwsd_callback(_, value: bool):
     """Callback to toggle Long Prompt Weighting Stable Diffusion pipeline."""
     status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
 
-    try:
-        imagen.set_model(imagen.model_path, value)
-    except (RuntimeError, ValueError) as e:
-        status(str(e), logger.error)
-        dpg.set_value("lpwsd_pipeline", False)
-        return
+    imagen.set_model(imagen.model_path, value)
 
     dpg.hide_item("status_text")  # remove any errors shown before
 
@@ -635,34 +620,34 @@ def load_settings(settings: dict):
             )
 
             if (
-                value in [imagen.__class__.__name__, imagen.pipeline.__name__]
+                same_pipe := (
+                    value in [type(imagen).__name__, imagen.pipeline.__name__]
+                )
                 and use_LPWSD == imagen.lpw_stable_diffusion_used
             ):
                 continue
 
             if use_LPWSD:
-                imagen._lpw_stable_diffusion_used = True
+                # Force LPWSD pipeline without loading.
+                imagen.lpw_stable_diffusion_used = True
 
             # Convert pipeline class into imagen class.
-            match value:
-                case "StableDiffusionPipeline" | "Text2Img":
-                    change_pipeline_callback(None, "Text2Img")
-                    dpg.set_value(setting, "Text2Img")
-
-                case "StableDiffusionLongPromptWeightingPipeline":
-                    # Force LPWSD pipeline without loading.
-                    imagen._lpw_stable_diffusion_used = True
-
-                    change_pipeline_callback(None, "Text2Img")
-                    dpg.set_value(setting, "Text2Img")
+            if value in [
+                "StableDiffusionPipeline",
+                "StableDiffusionLongPromptWeightingPipeline",
+                "Text2Img",
+            ]:
+                if use_LPWSD and same_pipe:
+                    lpwsd_callback(None, True)
                     dpg.set_value("lpwsd_pipeline", True)
-
-                case "StableDiffusionImg2ImgPipeline" | "SDImg2Img":
-                    change_pipeline_callback(None, "SDImg2Img")
-                    dpg.set_value(setting, "SDImg2Img")
-
-                case _:
-                    logger.error("Pipeline could not be understood.")
+                else:
+                    change_pipeline_callback(None, "Text2Img")
+                    dpg.set_value(setting, "Text2Img")
+            elif value in ["StableDiffusionImg2ImgPipeline", "SDImg2Img"]:
+                change_pipeline_callback(None, "SDImg2Img")
+                dpg.set_value(setting, "SDImg2Img")
+            else:
+                logger.error("Pipeline could not be understood.")
         elif setting == "loras":
             # Split reformatted lora string.
             loras = [
@@ -718,8 +703,12 @@ def load_from_image_callback():
         return
 
     settings = image.info
-    if not dpg.get_value("load_model_checkbox"):
+    if dpg.get_value("ignore_model_checkbox"):
         settings.pop("model", None)
+
+    if dpg.get_value("ignore_pipeline_checkbox"):
+        settings.pop("lpwsd_pipeline", None)
+        settings.pop("pipeline", None)
 
     dpg.set_value("width", image.size[0])
     dpg.set_value("height", image.size[1])
@@ -809,4 +798,8 @@ def delete_save_callback(name: str):
 
 def reuse_seed_callback():
     """Callback to reuse seed of currently shown image for generation."""
-    dpg.set_value("seed", texture_manager.current()[1].seed)
+    image = texture_manager.current()[1]
+    dpg.set_value(
+        "seed",
+        image.original_image.seed if hasattr(image, "original_image") else image.seed,
+    )

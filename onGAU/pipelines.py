@@ -9,6 +9,10 @@ import re
 import os
 
 
+class GenerationExit(BaseException):
+    pass
+
+
 def _generate(func, callback, **kwargs):
     logger.info("Starting generation...")
 
@@ -17,7 +21,7 @@ def _generate(func, callback, **kwargs):
 
         try:
             images = func(**kwargs)
-        except RuntimeError as e:  #
+        except GenerationExit as e:  #
             callback(e.args[1], time.time() - start_time, True)
             return
         except Exception as e:
@@ -131,15 +135,16 @@ def img2img(
     )
 
 
-def esrgan(imagen: ESRGAN, image: GeneratedImage, upscale: int, callback):
+def upscale(upscaler, image, callback, **kwargs):
     def worker():
         try:
-            upscaled = imagen.upscale_image(image, upscale)
-        except RuntimeError as e:
-            callback(e, True)
+            upscaled = upscaler.upscale_image(image, **kwargs)
+        except Exception as e:
+            # print(e.with_traceb)
+            callback(None, e)
             return
 
-        callback(upscaled, False)
+        callback(upscaled, None)
 
     thread = Thread(target=worker)
     thread.start()

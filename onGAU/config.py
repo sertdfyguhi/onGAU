@@ -34,8 +34,11 @@ DEFAULT_IMAGE_AMOUNT = 1
 DEFAULT_SEED = ""
 DEFAULT_WIDTH = 512  # image width
 DEFAULT_HEIGHT = 512  # image height
-DEFAULT_UPSCALE_AMOUNT = 4
 DEFAULT_PIPELINE = "Text2Img"
+DEFAULT_U_STEP_COUNT = 20
+DEFAULT_U_GUIDANCE_SCALE = 8.0
+DEFAULT_UPSCALE_AMOUNT = 4
+DEFAULT_UPSCALER_TYPE = "RealESRGAN"
 # Use long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.16.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
 DEFAULT_LPWSD_PIPELINE = True
 

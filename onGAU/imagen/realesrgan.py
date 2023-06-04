@@ -10,25 +10,18 @@ import os
 
 
 @dataclass
-class ESRGANUpscaledImage:
-    model: str
+class RealESRGANUpscaledImage:
+    model_path: str
     upscale_amount: int
     width: int
     height: int
-    seed: int
     image: Image.Image
     original_image: GeneratedImage
 
 
-def _convert_cv2_to_PIL(cv2_image):
-    return Image.fromarray(cv2_image)
-
-
-class ESRGAN:
-    def __init__(self, esrgan_model: str, device: str) -> None:
-        """ESRGAN model."""
-        self._model = esrgan_model
-
+class RealESRGAN:
+    def __init__(self, model: str, device: str) -> None:
+        """RealESRGAN model."""
         if device == "auto":
             if torch.cuda.is_available():
                 device = "cuda"
@@ -37,20 +30,19 @@ class ESRGAN:
             else:
                 device = "cpu"
 
-        self._device = device
-        self.set_model(esrgan_model)
+        self.device = device
+        self.set_model(model)
 
     def set_model(
         self,
-        esrgan_model: str,
-        tile_size: int = 0,
+        model_path: str,
         half_precision: bool = False,
     ):
-        """Set the ESRGAN model path."""
-        if not os.path.isfile(esrgan_model):
+        """Set the RealESRGAN model path."""
+        if not os.path.isfile(model_path):
             raise ValueError("Model path does not exist.")
 
-        model_name = os.path.basename(esrgan_model).split(".")[0]
+        model_name = os.path.basename(model_path).split(".")[0]
 
         if model_name in [
             "RealESRGAN_x4plus",
@@ -88,43 +80,46 @@ class ESRGAN:
             )
             scale = 2
         else:
-            raise ValueError("Failed to find ESRGAN model type.")
+            raise ValueError("Failed to determine RealESRGAN model type.")
 
-        self._esrgan = RealESRGANer(
+        self._pipeline = RealESRGANer(
             scale=scale,
-            device=self._device,
-            model_path=esrgan_model,
+            device=self.device,
+            model_path=model_path,
             model=model,
-            tile=tile_size,
             half=half_precision,
         )
-        self._model = esrgan_model
+        self.model_path = model_path
 
     def set_tile_size(self, tile_size: int):
         """Set the amount of tiles to create."""
-        self._esrgan.tile_size = tile_size
+        self._pipeline.tile_size = tile_size
 
-    @torch.no_grad()
     def upscale_image(
         self, generated_image: GeneratedImage | Image.Image, upscale: int | None = None
-    ) -> ESRGANUpscaledImage:
+    ) -> RealESRGANUpscaledImage:
         """Upscale a GeneratedImage object using ESRGAN."""
-        output, _ = self._esrgan.enhance(
-            np.array(
-                generated_image
-                if (is_pil := type(generated_image) == Image.Image)
-                else generated_image.image
-            ),
-            outscale=upscale,
-        )
+        try:
+            output, _ = self._pipeline.enhance(
+                np.array(
+                    generated_image
+                    if type(generated_image) == Image.Image
+                    else generated_image.image
+                ),
+                outscale=upscale,
+            )
+        except RuntimeError:
+            raise RuntimeError(
+                "Too much memory allocated. Enable tiling to reduce memory usage (not implemented yet)."
+            )
+
         height, width, _ = output.shape
 
-        return ESRGANUpscaledImage(
-            model=self._model,
+        return RealESRGANUpscaledImage(
+            model_path=self.model_path,
             upscale_amount=upscale,
             width=width,
             height=height,
-            seed=generated_image.seed if not is_pil else None,
-            image=_convert_cv2_to_PIL(output),
+            image=Image.fromarray(output),
             original_image=generated_image,
         )
