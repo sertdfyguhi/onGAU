@@ -1,19 +1,12 @@
+from windows.utils import *
 from callbacks import *
+import windows
 import logger
 import config
 
 import dearpygui.dearpygui as dpg
 import pyperclip
 import atexit
-
-CENTER = (config.WINDOW_SIZE[0] / 2, config.WINDOW_SIZE[1] / 2)
-
-
-def add_tooltip(text: str):
-    dpg.add_text(
-        text,
-        parent=dpg.add_tooltip(dpg.last_item()),
-    )
 
 
 # Register UI font.
@@ -108,63 +101,8 @@ with dpg.window(
             callback=lambda: dpg.hide_item("delete_save_dialog"),
         )
 
-with dpg.window(label="Upscale", show=False, tag="upscale_window", pos=CENTER):
-    dpg.add_input_int(
-        label="Upscale Amount",
-        default_value=int(user_settings["upscale_amount"]),
-        min_value=1,
-        width=config.ITEM_WIDTH * 0.75,
-        tag="upscale_amount",
-    )
-    add_tooltip("The amount to upscale the image.")
-
-    dpg.add_button(
-        label="Upscale Image",
-        tag="upscale_button",
-        callback=upscale_image_callback,
-    )
-
-with dpg.window(label="Model Merger", show=False, tag="merge_window", pos=CENTER):
-    dpg.add_input_text(
-        label="Merge Path", width=config.ITEM_WIDTH, tag="merge_path_input"
-    )
-    dpg.add_input_text(label="Model 1", tag="model1_input", width=config.ITEM_WIDTH)
-    dpg.add_input_text(label="Model 2", tag="model2_input", width=config.ITEM_WIDTH)
-    dpg.add_input_text(label="Model 3", tag="model3_input", width=config.ITEM_WIDTH)
-
-    dpg.add_combo(
-        items=[
-            "Weighted Sum",
-            "Add Difference",
-            "Sigmoid",
-            "Inverse Sigmoid",
-        ],
-        default_value="Weighted Sum",
-        label="Interpolation Method",
-        tag="interp_method_input",
-        width=config.ITEM_WIDTH,
-    )
-    add_tooltip("The interpolation method to use to merge the models.")
-
-    dpg.add_slider_float(
-        label="Alpha",
-        max_value=1.00,
-        min_value=0.00,
-        default_value=0.80,
-        clamped=True,
-        format="%.2f",
-        tag="alpha",
-    )
-    add_tooltip("The ratio to merge the models. 0 makes it the base model.")
-
-    dpg.add_checkbox(label="Ignore Text Encoder", default_value=True, tag="ignore_te")
-
-    dpg.add_button(
-        label="Merge",
-        width=config.ITEM_WIDTH / 2,
-        callback=merge_checkpoint_callback,
-        tag="merge_button",
-    )
+windows.upscale.init()
+windows.merge.init()
 
 # Main window.
 with dpg.window(tag="window"):
@@ -193,7 +131,7 @@ with dpg.window(tag="window"):
 
         dpg.add_menu_item(
             label="Merge",
-            callback=toggle_merge_window_callback,
+            callback=windows.merge.toggle,
         )
 
     dpg.add_input_text(
@@ -436,7 +374,7 @@ with dpg.window(tag="window"):
     with dpg.group(tag="output_button_group", horizontal=True, show=False):
         dpg.add_button(
             label="Upscale",
-            callback=lambda: toggle_item("upscale_window"),
+            callback=windows.upscale.toggle,
         )
         dpg.add_button(
             label="Save Image", tag="save_button", callback=save_image_callback

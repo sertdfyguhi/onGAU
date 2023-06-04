@@ -143,7 +143,6 @@ file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 base_image_aspect_ratio = None
 saves_tags = {}
 last_step_latents = []
-esrgan = None
 
 # 0 is for generating
 # 1 is interrupt called
@@ -466,14 +465,6 @@ def toggle_xformers_callback(_, value: bool):
         )
 
 
-def toggle_item(tag: str | int):
-    """Callback to toggle visibility of an item."""
-    if dpg.is_item_shown(tag):
-        dpg.hide_item(tag)
-    else:
-        dpg.show_item(tag)
-
-
 def change_pipeline_callback(_, pipeline: str):
     """Callback to change the pipeline used."""
     global imagen
@@ -621,56 +612,6 @@ def interrupt_callback():
 
         dpg.show_item("output_button_group")
         dpg.show_item("output_image_group")
-
-
-def upscale_image_callback():
-    """Callback to upscale the currently shown image."""
-    global esrgan
-
-    # Check if it has been defined yet.
-    if not config.ESRGAN_MODEL:
-        logger.error(
-            "ESRGAN model path has not been defined in config.py yet. Link to download the model: https://github.com/xinntao/Real-ESRGAN"
-        )
-        return
-
-    # Initialize the ESRGAN model if it hasn't been initialized yet.
-    if not esrgan:
-        logger.info("Initializing ESRGAN model...")
-        model_path = utils.append_dir_if_startswith(
-            config.ESRGAN_MODEL, FILE_DIR, "models/"
-        )
-
-        try:
-            esrgan = ESRGAN(model_path, config.DEVICE)
-        except ValueError as e:  # When model type cannot be determined.
-            status(str(e), logger.error)
-            return
-
-    logger.info("Upscaling image...")
-    update_window_title("Upscaling image...")
-    dpg.set_item_label("upscale_button", "Upscaling image...")
-
-    def callback(upscaled: ESRGANUpscaledImage, error: bool = False):
-        dpg.set_item_label("upscale_button", "Upscale Image")
-        update_window_title()
-
-        if error:
-            logger.error(
-                "Too much memory allocated. Enable tiling to reduce memory usage (not implemented yet)."
-            )
-            return
-
-        logger.success("Finished upscaling.")
-
-        texture_manager.update(upscaled)
-        update_image_widget(*texture_manager.current())
-
-    # Upscaling causes first step to take extra long.
-    # Putting it in a new thread seems to make it plateau at around 11-12s
-    pipelines.esrgan(
-        esrgan, texture_manager.current()[1], dpg.get_value("upscale_amount"), callback
-    )
 
 
 def load_settings(settings: dict):
@@ -869,77 +810,3 @@ def delete_save_callback(name: str):
 def reuse_seed_callback():
     """Callback to reuse seed of currently shown image for generation."""
     dpg.set_value("seed", texture_manager.current()[1].seed)
-
-
-def toggle_merge_window_callback():
-    """Callback to toggle the visibility of the checkpoint merger window."""
-    dpg.set_value("merge_path_input", os.path.dirname(imagen.model_path))
-    dpg.set_value("model1_input", imagen.model_path)
-    toggle_item("merge_window")
-
-
-INTERP_FUNC_MAPPING = {
-    "Weighted Sum": InterpolationFuncs.weighted_sum,
-    "Add Difference": InterpolationFuncs.add_diff,
-    "Sigmoid": InterpolationFuncs.sigmoid,
-    "Inverse Sigmoid": InterpolationFuncs.inv_sigmoid,
-}
-
-
-def merge_checkpoint_callback():
-    """Callback to merge models."""
-    global imagen
-
-    model1, model2, model3 = dpg.get_values(
-        ["model1_input", "model2_input", "model3_input"]
-    )
-
-    # Get interpolation function from text value.
-    interp_func = INTERP_FUNC_MAPPING[dpg.get_value("interp_method_input")]
-    path = utils.append_dir_if_startswith(
-        dpg.get_value("merge_path_input"), FILE_DIR, "models/"
-    )
-    ignore_te = dpg.get_value("ignore_te")
-    alpha = dpg.get_value("alpha")
-
-    if model1 != imagen.model_path and load_model(model1):
-        return
-
-    dpg.set_item_label("merge_button", "Merging...")
-    logger.info(f"Merging models...")
-
-    try:
-        # TODO: fix performance issue
-        merge(
-            alpha,
-            interp_func,
-            imagen,
-            model2,
-            model3,
-            ignore_te,
-        )
-    except FileNotFoundError as e:
-        status(str(e), logger.error)
-        dpg.set_item_label("merge_button", "Merge")
-        return
-
-    dpg.set_item_label("merge_button", "Merge")
-
-    if os.path.exists(path):
-        while True:
-            save_option = input(f"{path} already exists. Overwrite (y/n): ").lower()
-
-            if save_option in ["y", "yes"]:
-                break
-            else:
-                path = input("New path: ")
-                if not os.path.exists(path):
-                    break
-    else:
-        os.mkdir(path)
-
-    imagen.save_weights(path)
-    imagen.model_path = path
-    dpg.set_value("model", str(path))
-
-    logger.success("Successfully merged models.")
