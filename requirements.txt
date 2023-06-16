@@ -1,5 +1,5 @@
 dearpygui==1.9.1
-diffusers==0.16.1
+diffusers==0.17.1
 imagesize==1.4.1
 numpy==1.24.3
 Pillow==9.5.0
