@@ -7,7 +7,6 @@ import config
 import dearpygui.dearpygui as dpg
 import pyperclip
 import atexit
-import copy
 
 
 # Register UI font.

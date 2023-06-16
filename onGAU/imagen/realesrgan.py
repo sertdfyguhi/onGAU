@@ -103,7 +103,7 @@ class RealESRGAN:
             output, _ = self._pipeline.enhance(
                 np.array(
                     generated_image
-                    if type(generated_image) == Image.Image
+                    if isinstance(generated_image, Image.Image)
                     else generated_image.image
                 ),
                 outscale=upscale,

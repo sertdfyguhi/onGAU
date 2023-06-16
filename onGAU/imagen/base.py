@@ -168,9 +168,8 @@ class BaseImagen:
             )
 
             if is_file and use_lpw_stable_diffusion:
-                print(self._pipeline.components)
                 self._pipeline = StableDiffusionLongPromptWeightingPipeline(
-                    *self._pipeline.components
+                    **self._pipeline.components
                 )
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
@@ -220,7 +219,7 @@ class BaseImagen:
             self.load_embedding_model(model)
 
         for lora in self.loras_loaded:
-            self.load_lora(*lora)
+            self.load_lora(lora)
 
         self.set_device(self.device)
 
@@ -258,18 +257,13 @@ class BaseImagen:
 
         self.clip_skip_amount = amount
 
-    def load_lora(self, lora_path: str, weight: float = 0.75):
+    def load_lora(self, lora_path: str):
         """Load a .safetensors lora."""
-        if lora_path in [l[0] for l in self.loras_loaded]:
+        if lora_path in self.loras_loaded:
             return
 
-        self._pipeline = utils.load_lora(
-            self._pipeline,
-            lora_path,
-            self.device,
-            weight,
-        )
-        self.loras_loaded.append((lora_path, weight))
+        self._pipeline.load_lora_weights(lora_path)
+        self.loras_loaded.append(lora_path)
 
     def set_device(self, device: str):
         """Change device of pipeline."""

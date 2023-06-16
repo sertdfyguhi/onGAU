@@ -1,9 +1,10 @@
 import sys
+import os
 
-sys.path.append("../onGAU")
+sys.path.append(os.path.join(os.path.dirname(__file__), '../onGAU'))
 
 from argparse import ArgumentParser
-from onGAU.imagen import ESRGAN
+from imagen import RealESRGAN
 from PIL import Image
 import time
 
@@ -17,7 +18,7 @@ parser.add_argument("--tile_size", default=None, type=int)
 
 args = parser.parse_args()
 
-esrgan = ESRGAN(args.model, args.device)
+esrgan = RealESRGAN(args.model, args.device)
 if args.tile_size:
     esrgan.set_tile_size(args.tile_size)
 

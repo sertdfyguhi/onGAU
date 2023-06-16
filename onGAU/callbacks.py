@@ -5,7 +5,6 @@ import logger, config, pipelines
 
 from PIL import Image, UnidentifiedImageError
 from diffusers import schedulers
-from threading import Thread
 import dearpygui.dearpygui as dpg
 import imagesize
 import utils
@@ -122,12 +121,12 @@ for path in config.EMBEDDING_MODELS:
         logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
 
 # Load Loras.
-for path, weight in config.LORAS:
+for path in config.LORAS:
     lora_path = utils.append_dir_if_startswith(path, FILE_DIR, "models/")
     logger.info(f"Loading lora {lora_path}...")
 
     try:
-        imagen.load_lora(lora_path, weight)
+        imagen.load_lora(lora_path)
     except OSError as e:
         logger.error(f"Lora {lora_path} does not exist, skipping.")
 
@@ -234,6 +233,9 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
 def gen_progress_callback(step: int, step_count: int, elapsed_time: float, latents):
     """Callback to update UI to show generation progress."""
     global last_step_latents, gen_status
+
+    # step progress video mode
+    # imagen.convert_latent_to_image(latents)[0].image.save(f"saves/{step}.png")
 
     if step == 0:
         last_step_latents.append(latents)
@@ -650,16 +652,10 @@ def load_settings(settings: dict):
                 logger.error("Pipeline could not be understood.")
         elif setting == "loras":
             # Split reformatted lora string.
-            loras = [
-                (
-                    re.sub("\\(?=[,;])", "", lora.split(",")[0]),
-                    float(lora.split(",")[1]),
-                )
-                for lora in value.split(";")
-            ]
+            loras = [re.sub("\\(?=[,;])", "", value) for value in value.split(";")]
 
             for lora in loras:
-                imagen.load_lora(*lora)
+                imagen.load_lora(lora)
         elif setting == "embeddings":
             # Split reformatted embedding string.
             embeddings = [re.sub("\\(?=[,;])", "", value) for value in value.split(";")]

@@ -92,15 +92,9 @@ def save_image(image_info: GeneratedImage, file_path: str):
         ),
     )
 
-    BACKSLASH = "\\"
     metadata.add_text(
         "loras",
-        ";".join(
-            [
-                f'{lora[0].replace(";", f"{BACKSLASH};").replace(",", f"{BACKSLASH},")}, {lora[1]}'  # reformat
-                for lora in info.loras
-            ]
-        ),
+        ";".join([lora.replace(",", "\\,").replace(";", "\\;") for lora in info.loras]),
     )
 
     if info.pipeline == StableDiffusionImg2ImgPipeline:
