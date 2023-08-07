@@ -42,35 +42,6 @@ DEFAULT_UPSCALER_TYPE = "RealESRGAN"
 # Use long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.16.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
 DEFAULT_LPWSD_PIPELINE = True
 
-# A list of schedulers to use. You do not need to change this.
-SCHEDULERS = [
-    "DDIMInverseScheduler",
-    "DDIMScheduler",
-    "DDPMScheduler",
-    "DEISMultistepScheduler",
-    "DPMSolverMultistepScheduler",
-    "DPMSolverMultistepScheduler++",
-    "DPMSolverMultistepScheduler Karras",
-    "DPMSolverMultistepScheduler Karras++",
-    "DPMSolverSinglestepScheduler",
-    "EulerAncestralDiscreteScheduler",
-    "EulerAncestralDiscreteScheduler Karras",
-    "EulerDiscreteScheduler",
-    "HeunDiscreteScheduler",
-    "IPNDMScheduler",
-    "KDPM2AncestralDiscreteScheduler",
-    "KDPM2DiscreteScheduler",
-    "KarrasVeScheduler",
-    "LMSDiscreteScheduler",
-    "PNDMScheduler",
-    "RePaintScheduler",
-    "ScoreSdeVeScheduler",
-    "ScoreSdeVpScheduler",
-    "UnCLIPScheduler",
-    "UniPCMultistepScheduler",
-    "VQDiffusionScheduler",
-]
-
 # UI configurations. You do not need to change this.
 FONT = "DankMono-Regular.otf"  # place custom fonts in fonts directory
 FONT_SIZE = 15

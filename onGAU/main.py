@@ -1,3 +1,4 @@
+from imagen import SCHEDULERS
 from windows.utils import *
 from callbacks import *
 import windows
@@ -274,12 +275,12 @@ with dpg.window(tag="window"):
 
         dpg.add_combo(
             label="Scheduler",
-            items=config.SCHEDULERS,
+            items=SCHEDULERS,
             default_value=user_settings["scheduler"] or imagen.scheduler.__name__,
             width=config.ITEM_WIDTH,
-            tag="scheduler",
+            callback=lambda _, scheduler: load_scheduler(scheduler),
         )
-        add_tooltip("The sampling method to use.")
+        add_tooltip("The scheduling / sampling method to use.")
 
         dpg.add_input_int(
             label="Clip Skip",
@@ -295,7 +296,9 @@ with dpg.window(tag="window"):
             default_value=not imagen.safety_checker_enabled,
             callback=lambda tag, value: checkbox_callback(tag, not value),
         )
-        add_tooltip("Check for NSFW image.")
+        add_tooltip(
+            "Disables check for NSFW images. If enabled, images detected as NSFW are replaced with a black image."
+        )
 
         dpg.add_checkbox(
             label="Enable Attention Slicing",
@@ -304,7 +307,7 @@ with dpg.window(tag="window"):
             callback=checkbox_callback,
         )
         add_tooltip(
-            "Slices the computation into multiple steps. Increases performance on MPS."
+            "Slices the computation into multiple steps. Increases performance on Apple Silicon chips."
         )
 
         dpg.add_checkbox(
@@ -313,7 +316,7 @@ with dpg.window(tag="window"):
             default_value=imagen.vae_slicing_enabled,
             callback=checkbox_callback,
         )
-        add_tooltip("VAE decodes one image at a time.")
+        add_tooltip("Slices VAE decoding into multiple steps.")
 
         dpg.add_checkbox(
             label="Enable xFormers Memory Efficient Attention",

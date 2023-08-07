@@ -28,34 +28,8 @@ print(
 
 def load_scheduler(scheduler: str):
     """Load a scheduler."""
-    scheduler_name = scheduler
-
-    try:
-        scheduler_name, use_karras = scheduler[: scheduler.index(" Karras")], True
-    except ValueError:
-        scheduler_name, use_karras = scheduler, False
-
-    algorithm_type = (
-        "dpmsolver"
-        if scheduler_name == "DPMSolverMultistepScheduler"
-        and not scheduler.endswith("++")
-        else None
-    )
-
-    if (
-        scheduler_name == imagen.scheduler.__name__
-        and use_karras == imagen.karras_sigmas_used
-        and algorithm_type == imagen.scheduler_algorithm_type
-    ):
-        return
-
     logger.info(f"Loading scheduler {scheduler}...")
-
-    imagen.set_scheduler(
-        getattr(schedulers, scheduler_name),
-        use_karras_sigmas=use_karras,
-        algorithm_type=algorithm_type,
-    )
+    imagen.set_scheduler(scheduler)
 
 
 # load user settings
@@ -304,9 +278,6 @@ def generate_image_callback():
     )
     if model_path != imagen.model_path and load_model(model_path):
         return
-
-    scheduler = dpg.get_value("scheduler")
-    load_scheduler(scheduler)
 
     clip_skip = dpg.get_value("clip_skip")
     if clip_skip != imagen.clip_skip_amount:

@@ -45,7 +45,7 @@ python3 onGAU/main.py
 - [x] Generation Progress ETA
 - [x] Load .ckpt in app
 - [x] Load .safetensors lora in app
-- [ ] Implement lora correctly and fully
+- [x] Implement lora correctly and fully
 - [x] Add tooltips
 - [x] Denoising strength
 - [ ] Change embedding models and loras in app
@@ -66,4 +66,5 @@ python3 onGAU/main.py
   - [x] Use better code to get image size
   - [x] Sometimes after changing models inference is extremely slow
   - [x] When switching pipelines inference gets extremely slow
-  - [ ] First step takes extra time
+  - [ ] First step takes extra time after ESRGAN upscale
+  - [ ] Merging models makes inference unusably slow

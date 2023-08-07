@@ -1,13 +1,47 @@
 from . import utils
 
-from diffusers.utils import get_class_from_dynamic_module
-from diffusers import SchedulerMixin, DiffusionPipeline
+from diffusers import SchedulerMixin, DiffusionPipeline, schedulers
+
+# from diffusers.utils import get_class_from_dynamic_module
 from huggingface_hub.utils import HFValidationError
 from dataclasses import dataclass
 from compel import Compel
 from PIL import Image
 import torch
 import os
+
+# A list of schedulers to use. You do not need to change this.
+SCHEDULERS = [
+    "DDIMInverseScheduler",
+    "DDIMScheduler",
+    "DDPMScheduler",
+    "DEISMultistepScheduler",
+    # "DPMSolverMultistepScheduler",
+    # "DPMSolverMultistepScheduler Karras",
+    "DPMSolverMultistepScheduler++",
+    "DPMSolverMultistepScheduler Karras++",
+    # "DPMSolverMultistepScheduler SDE",
+    # "DPMSolverMultistepScheduler SDE Karras",
+    "DPMSolverMultistepScheduler SDE++",
+    "DPMSolverMultistepScheduler SDE Karras++",
+    "DPMSolverSinglestepScheduler",
+    "EulerAncestralDiscreteScheduler",
+    "EulerAncestralDiscreteScheduler Karras",
+    "EulerDiscreteScheduler",
+    "HeunDiscreteScheduler",
+    "IPNDMScheduler",
+    "KDPM2AncestralDiscreteScheduler",
+    "KDPM2DiscreteScheduler",
+    "KarrasVeScheduler",
+    "LMSDiscreteScheduler",
+    "PNDMScheduler",
+    "RePaintScheduler",
+    "ScoreSdeVeScheduler",
+    "ScoreSdeVpScheduler",
+    "UnCLIPScheduler",
+    "UniPCMultistepScheduler",
+    "VQDiffusionScheduler",
+]
 
 
 @dataclass
@@ -53,9 +87,9 @@ class GeneratedLatents:
 
 
 # Temporary. Custom pipelines aren't supported in from_ckpt.
-StableDiffusionLongPromptWeightingPipeline = get_class_from_dynamic_module(
-    "lpw_stable_diffusion", module_file="lpw_stable_diffusion.py"
-)
+# StableDiffusionLongPromptWeightingPipeline = get_class_from_dynamic_module(
+#     "lpw_stable_diffusion", module_file="lpw_stable_diffusion.py"
+# )
 
 
 class BaseImagen:
@@ -157,8 +191,8 @@ class BaseImagen:
 
         try:
             self._pipeline = (
-                pipeline.from_ckpt
-                if (is_file := model.endswith((".ckpt", ".safetensors")))
+                pipeline.from_single_file
+                if model.endswith((".ckpt", ".safetensors"))
                 else pipeline.from_pretrained
             )(
                 model,
@@ -167,10 +201,10 @@ class BaseImagen:
                 else None,
             )
 
-            if is_file and use_lpw_stable_diffusion:
-                self._pipeline = StableDiffusionLongPromptWeightingPipeline(
-                    **self._pipeline.components
-                )
+            # if is_file and use_lpw_stable_diffusion:
+            #     self._pipeline = StableDiffusionLongPromptWeightingPipeline(
+            #         **self._pipeline.components
+            #     )
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
@@ -278,30 +312,41 @@ class BaseImagen:
         self.device = device
         self._pipeline = self._pipeline.to(device)
 
-    # TODO: Add DPM++ SDE Karras.
-    def set_scheduler(
-        self,
-        scheduler: SchedulerMixin,
-        use_karras_sigmas: bool = False,
-        algorithm_type: str | None = None,
-    ):
+    def set_scheduler(self, scheduler_name: str):
         """Change scheduler of pipeline."""
         # TODO: Set scheduler internal variable instead of reinstating when using same scheduler
-        kwargs = {
-            key: value
-            for key, value in {
-                "use_karras_sigmas": use_karras_sigmas,
-                "algorithm_type": algorithm_type,
-            }.items()
-            if value
-        }
+        kwargs = {}
+
+        if scheduler_name.endswith("++"):
+            if "algorithm_type" in kwargs:
+                kwargs["algorithm_type"] += "++"
+            else:
+                kwargs["algorithm_type"] = "dpmsolver++"
+
+            scheduler_name = scheduler_name[:-2]
+
+        if scheduler_name.endswith(" Karras"):
+            kwargs["use_karras_sigmas"] = True
+            scheduler_name = scheduler_name[:-7]
+
+        if scheduler_name.endswith(" SDE"):
+            kwargs["algorithm_type"] = "sde-dpmsolver"
+            scheduler_name = scheduler_name[:-4]
+
+        # print(scheduler_name)
+
+        try:
+            scheduler = getattr(schedulers, scheduler_name)
+        except AttributeError:
+            raise ValueError("Invalid scheduler name.")
 
         self._pipeline.scheduler = scheduler.from_config(
             self._pipeline.scheduler.config, **kwargs
         )
 
-        self.karras_sigmas_used = use_karras_sigmas
-        self.scheduler_algorithm_type = algorithm_type
+        self._scheduler = scheduler
+        self._karras_sigmas_used = kwargs.get("use_karras_sigmas", False)
+        self._scheduler_algorithm_type = kwargs.get("algorithm_type", None)
 
     def save_weights(self, dir_path: str):
         """Save model weights in diffusers format in directory path."""
