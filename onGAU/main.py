@@ -279,6 +279,7 @@ with dpg.window(tag="window"):
             default_value=user_settings["scheduler"] or imagen.scheduler.__name__,
             width=config.ITEM_WIDTH,
             callback=lambda _, scheduler: load_scheduler(scheduler),
+            tag="scheduler",
         )
         add_tooltip("The scheduling / sampling method to use.")
 
