@@ -54,9 +54,7 @@ class GeneratedImage:
     step_count: int
     seed: int
     pipeline: DiffusionPipeline
-    scheduler: SchedulerMixin
-    karras_sigmas_used: bool
-    scheduler_algorithm_type: str
+    scheduler: str
     compel_weighting: bool
     clip_skip: int
     loras: list[str]
@@ -75,9 +73,7 @@ class GeneratedLatents:
     step_count: int
     seeds: list[int]
     pipeline: DiffusionPipeline
-    scheduler: SchedulerMixin
-    karras_sigmas_used: bool
-    scheduler_algorithm_type: str
+    scheduler: str
     compel_weighting: bool
     clip_skip: int
     loras: list[str]
@@ -103,7 +99,7 @@ class BaseImagen:
         """Base class for all imagen classes."""
         self.model_path = model_path
         self.device = device
-        self.scheduler_algorithm_type = None
+        self.scheduler = None
         self.loras_loaded = []
         self.embedding_models_loaded = []
         self.clip_skip_amount = 0
@@ -133,7 +129,7 @@ class BaseImagen:
         c.set_clip_skip_amount(original.clip_skip_amount)
 
         if original.scheduler:
-            c.set_scheduler(original.scheduler, original.karras_sigmas_used)
+            c.set_scheduler(original.scheduler)
 
         if not original.safety_checker_enabled:
             c.disable_safety_checker()
@@ -165,7 +161,7 @@ class BaseImagen:
         self,
         model: str,
         pipeline: DiffusionPipeline = DiffusionPipeline,
-        scheduler: SchedulerMixin = None,
+        scheduler: str = None,
         use_lpw_stable_diffusion: bool = False,
     ) -> None:
         """Base function to set the model of the pipeline."""
@@ -176,12 +172,8 @@ class BaseImagen:
                 "Compel prompt weighting cannot be used when using LPWSD pipeline."
             )
 
-        orig_scheduler = None
-
         # Some cleanup.
         if hasattr(self, "_pipeline"):
-            orig_scheduler = self._pipeline.scheduler.__class__
-
             del self._pipeline
             if self.compel_weighting_enabled:
                 del self._compel
@@ -208,17 +200,14 @@ class BaseImagen:
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
-        self.lpw_stable_diffusion_used = use_lpw_stable_diffusion
-
         if scheduler:
-            self.set_scheduler(scheduler)  # might implement karras sigmas to this
-        elif orig_scheduler:
-            self.set_scheduler(
-                orig_scheduler,
-                self.karras_sigmas_used,
-            )
+            self.set_scheduler(scheduler)
+        elif self.scheduler:
+            self.set_scheduler(self.scheduler)
+        else:
+            self.scheduler = type(self._pipeline.scheduler).__name__
 
-        self.scheduler = type(self._pipeline.scheduler)
+        self.lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
         # remove progress bar logging
         self._pipeline.set_progress_bar_config(disable=True)
@@ -315,6 +304,7 @@ class BaseImagen:
     def set_scheduler(self, scheduler_name: str):
         """Change scheduler of pipeline."""
         # TODO: Set scheduler internal variable instead of reinstating when using same scheduler
+        original = scheduler_name
         kwargs = {}
 
         if scheduler_name.endswith("++"):
@@ -344,9 +334,9 @@ class BaseImagen:
             self._pipeline.scheduler.config, **kwargs
         )
 
-        self._scheduler = scheduler
-        self._karras_sigmas_used = kwargs.get("use_karras_sigmas", False)
-        self._scheduler_algorithm_type = kwargs.get("algorithm_type", None)
+        self.scheduler = original
+        self.karras_sigmas_used = kwargs.get("use_karras_sigmas", False)
+        self.scheduler_algorithm_type = kwargs.get("algorithm_type", None)
 
     def save_weights(self, dir_path: str):
         """Save model weights in diffusers format in directory path."""

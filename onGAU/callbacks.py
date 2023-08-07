@@ -4,7 +4,6 @@ from texture_manager import TextureManager
 import logger, config, pipelines
 
 from PIL import Image, UnidentifiedImageError
-from diffusers import schedulers
 import dearpygui.dearpygui as dpg
 import imagesize
 import utils

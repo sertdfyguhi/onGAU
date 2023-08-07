@@ -94,8 +94,6 @@ class SDImg2Img(BaseImagen):
             "step_count": step_count,
             "pipeline": self.pipeline,
             "scheduler": self.scheduler,
-            "karras_sigmas_used": self.karras_sigmas_used,
-            "scheduler_algorithm_type": self.scheduler_algorithm_type,
             "compel_weighting": self.compel_weighting_enabled,
             "clip_skip": self.clip_skip_amount,
             "loras": self.loras_loaded,
