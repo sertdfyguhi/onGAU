@@ -20,10 +20,10 @@ SCHEDULERS = [
     # "DPMSolverMultistepScheduler Karras",
     "DPMSolverMultistepScheduler++",
     "DPMSolverMultistepScheduler Karras++",
-    # "DPMSolverMultistepScheduler SDE",
-    # "DPMSolverMultistepScheduler SDE Karras",
-    "DPMSolverMultistepScheduler SDE++",
-    "DPMSolverMultistepScheduler SDE Karras++",
+    # "SDE DPMSolverMultistepScheduler",
+    # "SDE DPMSolverMultistepScheduler Karras",
+    "SDE DPMSolverMultistepScheduler++",
+    "SDE DPMSolverMultistepScheduler Karras++",
     "DPMSolverSinglestepScheduler",
     "EulerAncestralDiscreteScheduler",
     "EulerAncestralDiscreteScheduler Karras",
@@ -307,6 +307,10 @@ class BaseImagen:
         original = scheduler_name
         kwargs = {}
 
+        if scheduler_name.startswith("SDE "):
+            kwargs["algorithm_type"] = "sde-dpmsolver"
+            scheduler_name = scheduler_name[4:]
+
         if scheduler_name.endswith("++"):
             if "algorithm_type" in kwargs:
                 kwargs["algorithm_type"] += "++"
@@ -318,10 +322,6 @@ class BaseImagen:
         if scheduler_name.endswith(" Karras"):
             kwargs["use_karras_sigmas"] = True
             scheduler_name = scheduler_name[:-7]
-
-        if scheduler_name.endswith(" SDE"):
-            kwargs["algorithm_type"] = "sde-dpmsolver"
-            scheduler_name = scheduler_name[:-4]
 
         # print(scheduler_name)
 
