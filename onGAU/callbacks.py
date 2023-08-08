@@ -384,9 +384,15 @@ def switch_image_callback(tag: str):
     if current:
         update_image_widget(*current)
         dpg.set_value("output_image_index", texture_manager.to_counter_string())
+
+        try:
+            seed = current[1].seed
+        except AttributeError:
+            seed = current[1].original_image.seed
+
         dpg.set_value(
             "info_text",
-            f"Current Image Seed: {current[1].seed}\n{chr(10).join(dpg.get_value('info_text').splitlines()[1:])}",
+            f"Current Image Seed: {seed}\n{chr(10).join(dpg.get_value('info_text').splitlines()[1:])}",
         )
 
 
@@ -765,7 +771,11 @@ def delete_save_callback(name: str):
 def reuse_seed_callback():
     """Callback to reuse seed of currently shown image for generation."""
     image = texture_manager.current()[1]
-    dpg.set_value(
-        "seed",
-        image.original_image.seed if hasattr(image, "original_image") else image.seed,
-    )
+    seed = image.original_image.seed if hasattr(image, "original_image") else image.seed
+
+    dpg.set_value("seed", seed)
+
+    # if value := dpg.get_value("seed"):
+    #     dpg.set_value("seed", seed)
+    # else:
+    #     dpg.set_value("seed", f"{value}, {seed}")

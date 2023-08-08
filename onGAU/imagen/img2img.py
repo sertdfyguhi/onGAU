@@ -136,8 +136,7 @@ class SDImg2Img(BaseImagen):
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
             kwargs["max_embeddings_multiples"] = self.max_embeddings_multiples
 
-        # lpwsd pipeline does not work with a list of generators
-        if self.lpw_stable_diffusion_used or (self.device == "mps" and len(seeds) > 1):
+        if self.device == "mps" and len(seeds) > 1:
             kwargs["num_images_per_prompt"] = 1
             images = [
                 self._pipeline(**kwargs, generator=generators[i]).images[0]
