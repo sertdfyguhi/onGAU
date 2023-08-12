@@ -1,6 +1,4 @@
-from . import utils
-
-from diffusers import SchedulerMixin, DiffusionPipeline, schedulers
+from diffusers import DiffusionPipeline, StableDiffusionPipeline, schedulers
 
 # from diffusers.utils import get_class_from_dynamic_module
 from huggingface_hub.utils import HFValidationError
@@ -160,7 +158,7 @@ class BaseImagen:
     def _set_model(
         self,
         model: str,
-        pipeline: DiffusionPipeline = DiffusionPipeline,
+        pipeline: DiffusionPipeline = StableDiffusionPipeline,
         scheduler: str = None,
         use_lpw_stable_diffusion: bool = False,
     ) -> None:
@@ -357,7 +355,7 @@ class BaseImagen:
         """Disable the safety checker."""
         if hasattr(self._pipeline, "safety_checker") and self._pipeline.safety_checker:
             self.safety_checker_enabled = False
-            self._pipeline.safety_checker = lambda images, clip_input: (images, False)
+            self._pipeline.safety_checker = lambda images, clip_input: (images, [False])
 
     def enable_attention_slicing(self):
         self.attention_slicing_enabled = True
