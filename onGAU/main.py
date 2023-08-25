@@ -41,10 +41,13 @@ if config.USE_THEME:
             dpg.add_theme_color(dpg.mvThemeCol_PopupBg, config.POPUP_COLOR)
             dpg.add_theme_color(dpg.mvThemeCol_FrameBg, config.ITEM_COLOR)
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, config.CHECKMARK_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, config.PROGRESS_COLOR)
 
             dpg.add_theme_color(dpg.mvThemeCol_Button, config.BUTTON_COLOR)
             dpg.add_theme_color(dpg.mvThemeCol_SliderGrab, config.BUTTON_COLOR)
+
+        with dpg.theme_component(dpg.mvProgressBar):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, config.PROGRESS_TEXT_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, config.PROGRESS_COLOR)
 
     dpg.bind_theme(global_theme)
 
