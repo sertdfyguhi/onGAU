@@ -1,4 +1,5 @@
 from diffusers import DiffusionPipeline, StableDiffusionPipeline, schedulers
+from diffusers.utils import get_class_from_dynamic_module
 
 # from diffusers.utils import get_class_from_dynamic_module
 from huggingface_hub.utils import HFValidationError
@@ -81,9 +82,9 @@ class GeneratedLatents:
 
 
 # Temporary. Custom pipelines aren't supported in from_ckpt.
-# StableDiffusionLongPromptWeightingPipeline = get_class_from_dynamic_module(
-#     "lpw_stable_diffusion", module_file="lpw_stable_diffusion.py"
-# )
+StableDiffusionLongPromptWeightingPipeline = get_class_from_dynamic_module(
+    "lpw_stable_diffusion", module_file="lpw_stable_diffusion.py"
+)
 
 
 class BaseImagen:
@@ -180,10 +181,10 @@ class BaseImagen:
                 del self._orig_safety_checker
 
         try:
+            is_file = model.endswith((".ckpt", ".safetensors"))
+
             self._pipeline = (
-                pipeline.from_single_file
-                if model.endswith((".ckpt", ".safetensors"))
-                else pipeline.from_pretrained
+                pipeline.from_single_file if is_file else pipeline.from_pretrained
             )(
                 model,
                 custom_pipeline="lpw_stable_diffusion"
@@ -191,10 +192,10 @@ class BaseImagen:
                 else None,
             )
 
-            # if is_file and use_lpw_stable_diffusion:
-            #     self._pipeline = StableDiffusionLongPromptWeightingPipeline(
-            #         **self._pipeline.components
-            #     )
+            if is_file and use_lpw_stable_diffusion:
+                self._pipeline = StableDiffusionLongPromptWeightingPipeline(
+                    **self._pipeline.components
+                )
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
