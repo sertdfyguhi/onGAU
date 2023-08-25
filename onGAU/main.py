@@ -23,6 +23,32 @@ with dpg.handler_registry():
         dpg.mvKey_Right, callback=lambda: switch_image_callback("next")
     )
 
+# Register theme.
+if config.USE_THEME:
+    with dpg.theme() as global_theme:
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, config.ITEM_HOVER_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, config.ITEM_HOVER_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, config.ITEM_HOVER_COLOR)
+
+            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, config.BACKGROUND_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, config.TITLE_BAR_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg, config.MENUBAR_COLOR)
+
+            dpg.add_theme_color(dpg.mvThemeCol_Text, config.FONT_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_TextSelectedBg, config.SELECTED_COLOR)
+
+            dpg.add_theme_color(dpg.mvThemeCol_PopupBg, config.POPUP_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, config.ITEM_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_CheckMark, config.CHECKMARK_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, config.PROGRESS_COLOR)
+
+            dpg.add_theme_color(dpg.mvThemeCol_Button, config.BUTTON_COLOR)
+            dpg.add_theme_color(dpg.mvThemeCol_SliderGrab, config.BUTTON_COLOR)
+
+    dpg.bind_theme(global_theme)
+
+
 # Create dialog box for loading settings from an image file.
 with dpg.window(
     label="Load settings from image",
@@ -431,7 +457,7 @@ if __name__ == "__main__":
     atexit.register(dpg.destroy_context)
 
     dpg.create_viewport(
-        title=config.WINDOW_TITLE,
+        title="onGAU",
         width=config.WINDOW_SIZE[0],
         height=config.WINDOW_SIZE[1],
     )

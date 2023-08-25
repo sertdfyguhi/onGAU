@@ -42,9 +42,29 @@ DEFAULT_UPSCALER_TYPE = "RealESRGAN"
 # Use long prompt weighting stable diffusion pipeline by default. info: https://huggingface.co/docs/diffusers/v0.16.0/en/using-diffusers/custom_pipeline_examples#long-prompt-weighting-stable-diffusion
 DEFAULT_LPWSD_PIPELINE = True
 
-# UI configurations. You do not need to change this.
-FONT = "DankMono-Regular.otf"  # place custom fonts in fonts directory
-FONT_SIZE = 15
+# UI configurations.
+FONT = "CascadiaCode-SemiLight.ttf"  # place custom fonts in fonts directory
+FONT_SIZE = 13
 ITEM_WIDTH = 280
-WINDOW_TITLE = "onGAU"
 WINDOW_SIZE = (1280, 720)  # width, height
+
+# theme colors
+# in RGB, basic catppuccin theme
+USE_THEME = True
+
+BACKGROUND_COLOR = (24, 24, 37)
+TITLE_BAR_COLOR = (30, 30, 46)
+MENUBAR_COLOR = (30, 30, 46)
+
+BUTTON_COLOR = (30, 30, 46)
+CHECKMARK_COLOR = (242, 205, 205)
+
+POPUP_COLOR = (30, 30, 46)
+ITEM_COLOR = (30, 30, 46)
+ITEM_HOVER_COLOR = (49, 50, 68)
+
+PROGRESS_COLOR = (242, 205, 205)
+PROGRESS_TEXT_COLOR = (69, 71, 90)
+
+FONT_COLOR = (245, 194, 231)
+SELECTED_COLOR = (49, 50, 68)

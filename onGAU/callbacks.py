@@ -119,9 +119,7 @@ gen_status = 0
 
 def update_window_title(info: str = None):
     """Updates the window title with the specified information."""
-    dpg.set_viewport_title(
-        f"{config.WINDOW_TITLE} - {info}" if info else config.WINDOW_TITLE
-    )
+    dpg.set_viewport_title(f"onGAU - {info}" if info else "onGAU")
 
 
 def status(msg: str, log_func=logger.info):
