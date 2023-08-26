@@ -6,23 +6,20 @@ A very simple AI image generator UI interface built with [Dear PyGui](https://gi
 
 ## Installation
 
-1. clone this repository
+1. Clone this repository.
 
 ```sh
 git clone https://github.com/sertdfyguhi/onGAU.git
 ```
 
-2. run `install.sh` to install all necessary modules
+2. Run `install.py` with python to setup onGAU.
 
 ```sh
-./install.sh
+python3 install.py
 ```
 
-3. run `onGAU/main.py` to start the UI
-
-```sh
-python3 onGAU/main.py
-```
+3. Run `run.sh` for MacOS / Linux or `run.bat` for Windows to start onGAU.
+4. Happy generating!
 
 ## Scripts
 
