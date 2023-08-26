@@ -4,21 +4,19 @@
 SAVE_FILE_PATTERN = "saves/saved%s.png"
 
 # The default model to load if user settings does not contain one. (huggingface model or local model)
-DEFAULT_MODEL = "models/cetusMix_cetusVersion3"
+DEFAULT_MODEL = "stabilityai/stable-diffusion-2-1"
 
 # The pytorch device to use. Automatically infers it if it is "auto". More info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
 DEVICE = "auto"
 
 # Array of paths to embedding / textual inversion models to use.
-EMBEDDING_MODELS = [
-    "models/embeds/easynegative.pt",
-    "models/embeds/bad_prompt.pt",
-    "models/embeds/badhandv4.pt",
-    "models/embeds/deepnegative.pt",
-]
+EMBEDDING_MODELS = []
 
-# Array of paths to lora files to use.
+# Array of paths to lora files to use. format: [(path, weight)]
 LORAS = []
+
+# Path to ESRGAN model.
+ESRGAN_MODEL = ""
 
 # Path to the .ini file to save user settings.
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
