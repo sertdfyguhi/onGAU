@@ -23,35 +23,6 @@ with dpg.handler_registry():
         dpg.mvKey_Right, callback=lambda: switch_image_callback("next")
     )
 
-# Register theme.
-if config.USE_THEME:
-    with dpg.theme() as global_theme:
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, config.ITEM_HOVER_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, config.ITEM_HOVER_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, config.ITEM_HOVER_COLOR)
-
-            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, config.BACKGROUND_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, config.TITLE_BAR_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg, config.MENUBAR_COLOR)
-
-            dpg.add_theme_color(dpg.mvThemeCol_Text, config.FONT_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_TextSelectedBg, config.SELECTED_COLOR)
-
-            dpg.add_theme_color(dpg.mvThemeCol_PopupBg, config.POPUP_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_FrameBg, config.ITEM_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_CheckMark, config.CHECKMARK_COLOR)
-
-            dpg.add_theme_color(dpg.mvThemeCol_Button, config.BUTTON_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_SliderGrab, config.BUTTON_COLOR)
-
-        with dpg.theme_component(dpg.mvProgressBar):
-            dpg.add_theme_color(dpg.mvThemeCol_Text, config.PROGRESS_TEXT_COLOR)
-            dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, config.PROGRESS_COLOR)
-
-    dpg.bind_theme(global_theme)
-
-
 # Create dialog box for loading settings from an image file.
 with dpg.window(
     label="Load settings from image",
@@ -128,7 +99,7 @@ with dpg.window(
         dpg.add_button(
             label="Delete",
             width=config.ITEM_WIDTH / 2 - 5,
-            callback=delete_save_callback,
+            callback=delete_save,
         )
         dpg.add_button(
             label="Cancel",
@@ -145,7 +116,7 @@ with dpg.window(tag="window"):
         with dpg.menu(label="Saves", tag="saves_menu"):
             for name in settings_manager.settings:
                 saves_tags[name] = dpg.add_menu_item(
-                    label=name, callback=(lambda n: lambda: load_save_callback(n))(name)
+                    label=name, callback=(lambda n: lambda: load_save(n))(name)
                 )
 
             dpg.add_menu_item(
@@ -156,6 +127,17 @@ with dpg.window(tag="window"):
             dpg.add_menu_item(
                 label="Save Current Settings...",
                 callback=lambda: toggle_item("save_settings_dialog"),
+            )
+
+        with dpg.menu(label="Themes", tag="themes_menu"):
+            for name in theme_manager.get_themes():
+                dpg.add_menu_item(
+                    label=name,
+                    callback=(lambda n: lambda: theme_manager.load_theme(n))(name),
+                )
+
+            dpg.add_menu_item(
+                label="Reset Theme...", callback=lambda: dpg.bind_theme(0)
             )
 
         with dpg.menu(label="File"):

@@ -4,22 +4,27 @@
 SAVE_FILE_PATTERN = "saves/saved%s.png"
 
 # The default model to load if user settings does not contain one. (huggingface model or local model)
-DEFAULT_MODEL = "stabilityai/stable-diffusion-2-1"
+DEFAULT_MODEL = "models/cetusMix_cetusVersion3"
 
 # The pytorch device to use. Automatically infers it if it is "auto". More info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
 DEVICE = "auto"
 
 # Array of paths to embedding / textual inversion models to use.
-EMBEDDING_MODELS = []
+EMBEDDING_MODELS = [
+    "models/embeds/easynegative.pt",
+    "models/embeds/bad_prompt.pt",
+    "models/embeds/badhandv4.pt",
+    "models/embeds/deepnegative.pt",
+]
 
-# Array of paths to lora files to use. format: [(path, weight)]
+# Array of paths to lora files to use.
 LORAS = []
-
-# Path to ESRGAN model.
-ESRGAN_MODEL = ""
 
 # Path to the .ini file to save user settings.
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
+
+# Path to directory of themes.
+THEME_DIR = "onGAU/themes"
 
 # Increase this number if prompt is truncated in LPWSD pipeline.
 MAX_EMBEDDINGS_MULTIPLES = 5
@@ -47,24 +52,3 @@ FONT = "CascadiaCode-SemiLight.ttf"  # place custom fonts in fonts directory
 FONT_SIZE = 13
 ITEM_WIDTH = 280
 WINDOW_SIZE = (1280, 720)  # width, height
-
-# theme colors
-# in RGB, basic catppuccin theme
-USE_THEME = True
-
-BACKGROUND_COLOR = (24, 24, 37)
-TITLE_BAR_COLOR = (30, 30, 46)
-MENUBAR_COLOR = (30, 30, 46)
-
-BUTTON_COLOR = (30, 30, 46)
-CHECKMARK_COLOR = (242, 205, 205)
-
-POPUP_COLOR = (30, 30, 46)
-ITEM_COLOR = (30, 30, 46)
-ITEM_HOVER_COLOR = (49, 50, 68)
-
-PROGRESS_COLOR = (242, 205, 205)
-PROGRESS_TEXT_COLOR = (69, 71, 90)
-
-FONT_COLOR = (245, 194, 231)
-SELECTED_COLOR = (49, 50, 68)

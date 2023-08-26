@@ -1,6 +1,7 @@
 from imagen import Text2Img, SDImg2Img, GeneratedImage
 from settings_manager import SettingsManager
 from texture_manager import TextureManager
+from theme_manager import ThemeManager
 import logger, config, pipelines
 
 from PIL import Image, UnidentifiedImageError
@@ -32,7 +33,8 @@ def load_scheduler(scheduler: str):
 
 
 # load user settings
-settings_manager = SettingsManager(config.USER_SETTINGS_FILE)
+theme_manager = ThemeManager(config.THEME_DIR)
+settings_manager = SettingsManager(config.USER_SETTINGS_FILE, theme_manager)
 user_settings = settings_manager.get_settings("main")
 
 model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
@@ -102,6 +104,16 @@ for path in config.LORAS:
         imagen.load_lora(lora_path)
     except OSError as e:
         logger.error(f"Lora {lora_path} does not exist, skipping.")
+
+# Load theme.
+theme = user_settings["theme"]
+
+if len(theme) > 0:
+    try:
+        theme_manager.load_theme(theme)
+    except ValueError:
+        logger.error(f'Could not find theme "{theme}".')
+
 
 texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
@@ -701,16 +713,6 @@ def kill_gen_callback():
     gen_status = 3
 
 
-def load_save_callback(name: str):
-    """Callback to load a save."""
-    status(f"Loading save {name}...")
-
-    load_settings(settings_manager.get_settings(name, full=True))
-
-    dpg.hide_item("status_text")
-    logger.success(f"Successfully loaded save {name}.")
-
-
 def update_delete_save_input():
     """Update the input items of the delete save dialog."""
     settings = settings_manager.settings
@@ -740,13 +742,23 @@ def save_settings_callback():
         saves_tags[name] = dpg.add_menu_item(
             label=name,
             before="delete_save_button",
-            callback=lambda: load_save_callback(name),
+            callback=lambda: load_save(name),
             parent="saves_menu",
         )
     dpg.hide_item("save_settings_dialog")
 
 
-def delete_save_callback(name: str):
+def load_save(name: str):
+    """Callback to load a save."""
+    status(f"Loading save {name}...")
+
+    load_settings(settings_manager.get_settings(name, full=True))
+
+    dpg.hide_item("status_text")
+    logger.success(f"Successfully loaded save {name}.")
+
+
+def delete_save(name: str):
     """Callback to delete a save."""
     global saves_tags
 

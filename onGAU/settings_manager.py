@@ -3,9 +3,11 @@ import dearpygui.dearpygui as dpg
 import config
 import os
 
+from theme_manager import ThemeManager
+
 
 class SettingsManager:
-    def __init__(self, settings_file: str):
+    def __init__(self, settings_file: str, theme_manager: ThemeManager):
         if not os.path.isfile(settings_file):
             open(settings_file, "w").close()
 
@@ -19,6 +21,8 @@ class SettingsManager:
             # self._config["main"] = self._config.pop("user_settings")
             self._config["main"] = self._config["user_settings"]
             self._config.remove_section("user_settings")
+
+        self._theme_manager = theme_manager
 
     @property
     def settings(self):
@@ -77,6 +81,7 @@ class SettingsManager:
         )
 
         for op in [
+            "theme",
             "base_image_path",
             "upscale_model",
         ]:
@@ -131,6 +136,8 @@ class SettingsManager:
             "upscale_amount",
         ]:
             self._config[section][op] = str(dpg.get_value(op))
+
+        self._config[section]["theme"] = self._theme_manager.current_theme
 
         for key in ignore_keys:
             del self._config[section][key]
