@@ -4,7 +4,7 @@
 SAVE_FILE_PATTERN = "saves/saved%s.png"
 
 # The default model to load if user settings does not contain one. (huggingface model or local model)
-DEFAULT_MODEL = "stabilityai/stable-diffusion-2-1"
+DEFAULT_MODEL = "%default_model%"
 
 # The pytorch device to use. Automatically infers it if it is "auto". More info here: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
 DEVICE = "auto"
