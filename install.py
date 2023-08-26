@@ -16,7 +16,8 @@ with open(os.path.join(root, "onGAU", "config.py"), "r+") as f:
     contents = f.read()
     contents = contents.replace('"%default_model%"', repr(model), 1)
 
-    f.truncate(0)
+    f.seek(0)
+    f.truncate()
     f.write(contents)
 
 print("Finished onGAU setup! Happy generating!")
