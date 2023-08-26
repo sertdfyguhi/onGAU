@@ -5,14 +5,20 @@
     "title_bar": [95, 146, 97],
     "title_bar_unfocused": [60, 56, 54],
     "menubar": [40, 40, 40],
-    "popup": [40, 40, 40],
+    "modal_overlay": [29, 32, 33, 110],
     "border": [102, 92, 84],
+
+    "scrollbar": [60, 56, 54],
+    "scrollbar_grab": [213, 196, 161],
+    "scrollbar_grab_hover": [251, 241, 199],
+    "scrollbar_grab_active": [235, 219, 178],
 
     "item": [40, 40, 40],
     "item_hover": [60, 56, 54],
     "item_pressed": [80, 73, 69],
     "button": [40, 40, 40],
     "checkmark": [211, 133, 155],
+    "option_selected": [60, 56, 54],
     "progress_bar": [211, 133, 155],
     "progress_bar_text": [213, 196, 161],
 

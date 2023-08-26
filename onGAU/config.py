@@ -12,11 +12,8 @@ DEVICE = "auto"
 # Array of paths to embedding / textual inversion models to use.
 EMBEDDING_MODELS = []
 
-# Array of paths to lora files to use. format: [(path, weight)]
+# Array of paths to lora files to use.
 LORAS = []
-
-# Path to ESRGAN model.
-ESRGAN_MODEL = ""
 
 # Path to the .ini file to save user settings.
 USER_SETTINGS_FILE = "onGAU/user_settings.ini"
@@ -47,6 +44,6 @@ DEFAULT_LPWSD_PIPELINE = True
 
 # UI configurations.
 FONT = "PTMono-Regular.ttf"  # place custom fonts in fonts directory
-FONT_SIZE = 12.3
+FONT_SIZE = 12.6
 ITEM_WIDTH = 280
 WINDOW_SIZE = (1280, 720)  # width, height

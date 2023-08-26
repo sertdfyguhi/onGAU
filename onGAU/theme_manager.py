@@ -50,24 +50,32 @@ class ThemeManager:
                     dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, colors["item_hover"])
 
                     dpg.add_theme_color(dpg.mvThemeCol_WindowBg, colors["background"])
+                    dpg.add_theme_color(dpg.mvThemeCol_PopupBg, colors["background"])
                     dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, colors["title_bar"])
                     dpg.add_theme_color(dpg.mvThemeCol_TitleBg, colors["title_bar_unfocused"])
                     dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg, colors["menubar"])
 
+                    dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg, colors["scrollbar"])
+                    dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrab, colors["scrollbar_grab"])
+                    dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabHovered, colors["scrollbar_grab_hover"])
+                    dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabActive, colors["scrollbar_grab_active"])
+
                     dpg.add_theme_color(dpg.mvThemeCol_Text, colors["text"])
                     dpg.add_theme_color(dpg.mvThemeCol_TextSelectedBg, colors["text_selected"])
 
-                    dpg.add_theme_color(dpg.mvThemeCol_PopupBg, colors["popup"])
+                    dpg.add_theme_color(dpg.mvThemeCol_ModalWindowDimBg, colors["modal_overlay"])
                     dpg.add_theme_color(dpg.mvThemeCol_Border, colors["border"])
                     dpg.add_theme_color(dpg.mvThemeCol_FrameBg, colors["item"])
                     dpg.add_theme_color(dpg.mvThemeCol_CheckMark, colors["checkmark"])
 
                     dpg.add_theme_color(dpg.mvThemeCol_Button, colors["button"])
                     dpg.add_theme_color(dpg.mvThemeCol_SliderGrab, colors["button"])
+                    dpg.add_theme_color(dpg.mvThemeCol_Header, colors["option_selected"])
 
                     dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, colors["item_pressed"])
                     dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive, colors["item_pressed"])
                     dpg.add_theme_color(dpg.mvThemeCol_HeaderActive, colors["item_pressed"])
+                    dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive, colors["item_pressed"])
 
                 with dpg.theme_component(dpg.mvProgressBar):
                     dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, colors["progress_bar"])

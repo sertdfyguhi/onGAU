@@ -1,0 +1,28 @@
+{
+  "name": "Rose Pine",
+  "colors": {
+    "background": [25, 23, 36],
+    "title_bar": [235, 111, 146],
+    "title_bar_unfocused": [38, 35, 58],
+    "menubar": [33, 32, 46],
+    "modal_overlay": [25, 23, 36, 110],
+    "border": [64, 61, 82],
+
+    "scrollbar": [38, 35, 58],
+    "scrollbar_grab": [231, 173, 171],
+    "scrollbar_grab_hover": [239, 203, 201],
+    "scrollbar_grab_active": [235, 188, 186],
+
+    "item": [31, 29, 46],
+    "item_hover": [38, 35, 58],
+    "item_pressed": [64, 61, 82],
+    "button": [33, 32, 46],
+    "checkmark": [235, 188, 186],
+    "option_selected": [33, 32, 46],
+    "progress_bar": [62, 143, 176],
+    "progress_bar_text": [224, 222, 244],
+
+    "text": [224, 222, 244],
+    "text_selected": [235, 188, 186, 76.5]
+  }
+}

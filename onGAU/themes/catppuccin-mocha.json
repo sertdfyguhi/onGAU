@@ -5,18 +5,24 @@
     "title_bar": [49, 50, 68],
     "title_bar_unfocused": [30, 30, 46],
     "menubar": [30, 30, 46],
-    "popup": [30, 30, 46],
+    "modal_overlay": [24, 24, 37, 110],
     "border": [69, 71, 90],
+
+    "scrollbar": [30, 32, 48],
+    "scrollbar_grab": [238, 189, 189],
+    "scrollbar_grab_hover": [246, 221, 221],
+    "scrollbar_grab_active": [242, 205, 205],
 
     "item": [30, 30, 46],
     "item_hover": [49, 50, 68],
     "item_pressed": [69, 71, 90],
     "button": [30, 30, 46],
-    "checkmark": [242, 205, 205],
+    "checkmark": [245, 194, 231],
+    "option_selected": [36, 39, 58],
     "progress_bar": [242, 205, 205],
-    "progress_bar_text": [69, 71, 90],
+    "progress_bar_text": [242, 205, 205],
 
-    "text": [245, 194, 231],
+    "text": [242, 205, 205],
     "text_selected": [49, 50, 68]
   }
 }
