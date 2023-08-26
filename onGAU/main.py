@@ -289,7 +289,7 @@ with dpg.window(tag="window"):
         dpg.add_combo(
             label="Scheduler",
             items=SCHEDULERS,
-            default_value=user_settings["scheduler"] or imagen.scheduler.__name__,
+            default_value=user_settings["scheduler"] or imagen.scheduler,
             width=config.ITEM_WIDTH,
             callback=lambda _, scheduler: load_scheduler(scheduler),
             tag="scheduler",
