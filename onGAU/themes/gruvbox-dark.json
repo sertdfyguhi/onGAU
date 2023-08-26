@@ -1,0 +1,21 @@
+{
+  "name": "Gruvbox Dark",
+  "colors": {
+    "background": [29, 32, 33],
+    "title_bar": [95, 146, 97],
+    "title_bar_unfocused": [60, 56, 54],
+    "menubar": [40, 40, 40],
+    "popup": [40, 40, 40],
+    "border": [102, 92, 84],
+
+    "item": [40, 40, 40],
+    "item_hover": [80, 73, 69],
+    "button": [40, 40, 40],
+    "checkmark": [211, 133, 155],
+    "progress_bar": [211, 133, 155],
+    "progress_bar_text": [213, 196, 161],
+
+    "text": [235, 219, 178],
+    "text_selected": [80, 73, 69]
+  }
+}

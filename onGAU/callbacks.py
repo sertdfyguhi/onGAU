@@ -119,8 +119,8 @@ texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
 
 base_image_aspect_ratio = None
-saves_tags = {}
 last_step_latents = []
+saves_tags = {}
 
 # 0 is for generating
 # 1 is interrupt called
@@ -789,3 +789,20 @@ def reuse_seed_callback():
     #     dpg.set_value("seed", seed)
     # else:
     #     dpg.set_value("seed", f"{value}, {seed}")
+
+
+def reload_theme_callback():
+    """Callback to reload themes."""
+    logger.info("Reloading themes...")
+
+    theme_manager.load_themes()
+
+    for child in dpg.get_item_children("theme_buttons")[1]:
+        dpg.delete_item(child)
+
+    for name in theme_manager.get_themes():
+        dpg.add_menu_item(
+            label=name,
+            callback=(lambda n: lambda: theme_manager.load_theme(n))(name),
+            parent="theme_buttons",
+        )

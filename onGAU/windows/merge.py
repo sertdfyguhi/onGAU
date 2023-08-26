@@ -108,6 +108,7 @@ def init():
             min_value=0.00,
             default_value=0.80,
             clamped=True,
+            width=config.ITEM_WIDTH,
             format="%.2f",
             tag="alpha",
         )

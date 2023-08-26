@@ -130,15 +130,17 @@ with dpg.window(tag="window"):
             )
 
         with dpg.menu(label="Themes", tag="themes_menu"):
-            for name in theme_manager.get_themes():
-                dpg.add_menu_item(
-                    label=name,
-                    callback=(lambda n: lambda: theme_manager.load_theme(n))(name),
-                )
+            with dpg.group(tag="theme_buttons"):
+                for name in theme_manager.get_themes():
+                    dpg.add_menu_item(
+                        label=name,
+                        callback=(lambda n: lambda: theme_manager.load_theme(n))(name),
+                    )
 
             dpg.add_menu_item(
                 label="Reset Theme...", callback=lambda: dpg.bind_theme(0)
             )
+            dpg.add_menu_item(label="Reload...", callback=reload_theme_callback)
 
         with dpg.menu(label="File"):
             dpg.add_menu_item(

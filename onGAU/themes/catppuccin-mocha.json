@@ -2,9 +2,11 @@
   "name": "Catppuccin Mocha",
   "colors": {
     "background": [24, 24, 37],
-    "title_bar": [30, 30, 46],
+    "title_bar": [49, 50, 68],
+    "title_bar_unfocused": [30, 30, 46],
     "menubar": [30, 30, 46],
     "popup": [30, 30, 46],
+    "border": [49, 50, 68],
 
     "item": [30, 30, 46],
     "item_hover": [49, 50, 68],
