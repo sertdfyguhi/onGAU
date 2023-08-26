@@ -1,4 +1,4 @@
-from imagen.text2img import GeneratedImage
+from imagen.text2img import GeneratedImage, GeneratedLatents
 from PIL.Image import Image
 import dearpygui.dearpygui as dpg
 import numpy as np
@@ -42,7 +42,7 @@ class TextureManager:
                 )
             )
 
-    def next(self) -> tuple[str | int, GeneratedImage]:
+    def next(self) -> tuple[str | int, GeneratedImage | GeneratedLatents]:
         """Returns and moves to the next image and texture."""
         if self._textures == [] or self._image_index == len(self._textures) - 1:
             return
@@ -50,7 +50,7 @@ class TextureManager:
         self._image_index += 1
         return self._textures[self._image_index], self._images[self._image_index]
 
-    def previous(self) -> tuple[str | int, GeneratedImage]:
+    def previous(self) -> tuple[str | int, GeneratedImage | GeneratedLatents]:
         """Returns and moves to the previous image and texture."""
         if self._image_index == 0:
             return
@@ -58,11 +58,11 @@ class TextureManager:
         self._image_index -= 1
         return self._textures[self._image_index], self._images[self._image_index]
 
-    def current(self) -> tuple[str | int, GeneratedImage]:
+    def current(self) -> tuple[str | int, GeneratedImage | GeneratedLatents]:
         """Returns the current image."""
         return self._textures[self._image_index], self._images[self._image_index]
 
-    def update(self, new: GeneratedImage, index: int = -1):
+    def update(self, new: GeneratedImage | GeneratedLatents, index: int = -1):
         """Update an image using the index of it in the images list."""
         if index < 0:
             index = self._image_index

@@ -65,6 +65,10 @@ class ThemeManager:
                     dpg.add_theme_color(dpg.mvThemeCol_Button, colors["button"])
                     dpg.add_theme_color(dpg.mvThemeCol_SliderGrab, colors["button"])
 
+                    dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, colors["item_pressed"])
+                    dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive, colors["item_pressed"])
+                    dpg.add_theme_color(dpg.mvThemeCol_HeaderActive, colors["item_pressed"])
+
                 with dpg.theme_component(dpg.mvProgressBar):
                     dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, colors["progress_bar"])
                     dpg.add_theme_color(dpg.mvThemeCol_Text, colors["progress_bar_text"])

@@ -9,7 +9,8 @@
     "border": [102, 92, 84],
 
     "item": [40, 40, 40],
-    "item_hover": [80, 73, 69],
+    "item_hover": [60, 56, 54],
+    "item_pressed": [80, 73, 69],
     "button": [40, 40, 40],
     "checkmark": [211, 133, 155],
     "progress_bar": [211, 133, 155],

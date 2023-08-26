@@ -435,6 +435,7 @@ with dpg.window(tag="window"):
 
     dpg.bind_font(default_font)
 
+del user_settings
 dpg.set_primary_window("window", True)
 
 if __name__ == "__main__":

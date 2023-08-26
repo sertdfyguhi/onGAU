@@ -46,7 +46,7 @@ DEFAULT_UPSCALER_TYPE = "RealESRGAN"
 DEFAULT_LPWSD_PIPELINE = True
 
 # UI configurations.
-FONT = "CascadiaCode-SemiLight.ttf"  # place custom fonts in fonts directory
-FONT_SIZE = 13
+FONT = "PTMono-Regular.ttf"  # place custom fonts in fonts directory
+FONT_SIZE = 12.3
 ITEM_WIDTH = 280
 WINDOW_SIZE = (1280, 720)  # width, height

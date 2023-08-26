@@ -6,10 +6,11 @@
     "title_bar_unfocused": [30, 30, 46],
     "menubar": [30, 30, 46],
     "popup": [30, 30, 46],
-    "border": [49, 50, 68],
+    "border": [69, 71, 90],
 
     "item": [30, 30, 46],
     "item_hover": [49, 50, 68],
+    "item_pressed": [69, 71, 90],
     "button": [30, 30, 46],
     "checkmark": [242, 205, 205],
     "progress_bar": [242, 205, 205],

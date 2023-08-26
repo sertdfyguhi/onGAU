@@ -13,7 +13,7 @@ class GenerationExit(BaseException):
     pass
 
 
-def _generate(func, callback, **kwargs):
+def thread_generate(func, callback, **kwargs):
     logger.info("Starting generation...")
 
     def worker():
@@ -35,7 +35,7 @@ def _generate(func, callback, **kwargs):
     thread.start()
 
 
-def _error(error: str):
+def gen_error(error: str):
     logger.error(error)
     dpg.hide_item("progress_bar")
 
@@ -49,26 +49,25 @@ def text2img(
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")
     size = dpg.get_values(["width", "height"])
-    # strength = dpg.get_value("strength")
     guidance_scale = dpg.get_value("guidance_scale")
     step_count = dpg.get_value("step_count")
     image_amount = dpg.get_value("image_amount")
     seed = dpg.get_value("seed")
+
     if seed:
         try:
             # Split and convert seeds into integers.
-            seed = (
-                int(seed)
-                if seed.isdigit()
-                else [int(s) for s in re.split(r"[, ]+", seed)]
-            )
+            if seed.isdigit():
+                seed = int(seed)
+            else:
+                seed = [int(s) for s in re.split(r"[, ]+", seed)]
         except ValueError:
-            _error("Seeds provided are not integers.")
+            gen_error("Seed provided are not integers.")
             return
 
     prepare_UI()
 
-    _generate(
+    thread_generate(
         imagen.generate_image,
         callback,
         prompt=prompt,
@@ -94,20 +93,20 @@ def img2img(
     image_amount = dpg.get_value("image_amount")
     base_image_path = dpg.get_value("base_image_path")
     seed = dpg.get_value("seed")
+
     if seed:
         try:
             # Split and convert seeds into integers.
-            seed = (
-                int(seed)
-                if seed.isdigit()
-                else [int(s) for s in re.split(r"[, ]+", seed)]
-            )
+            if seed.isdigit():
+                seed = int(seed)
+            else:
+                seed = [int(s) for s in re.split(r"[, ]+", seed)]
         except ValueError:
-            _error("Seeds provided are not integers.")
+            gen_error("Seed provided are not integers.")
             return
 
     if not os.path.isfile(base_image_path):
-        _error("Base image path does not exist.")
+        gen_error("Base image does not exist.")
         return
 
     try:
@@ -115,12 +114,12 @@ def img2img(
         # To be used when saving image.
         base_image.filename = base_image_path
     except UnidentifiedImageError:
-        _error("Base image path is not an image file.")
+        gen_error("Base image is not an image file.")
         return
 
     prepare_UI()
 
-    _generate(
+    thread_generate(
         imagen.generate_image,
         callback,
         base_image=base_image,
@@ -140,7 +139,6 @@ def upscale(upscaler, image, callback, **kwargs):
         try:
             upscaled = upscaler.upscale_image(image, **kwargs)
         except Exception as e:
-            # print(e.with_traceb)
             callback(None, e)
             return
 

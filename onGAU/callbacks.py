@@ -6,7 +6,6 @@ import logger, config, pipelines
 
 from PIL import Image, UnidentifiedImageError
 import dearpygui.dearpygui as dpg
-import imagesize
 import utils
 import torch
 import time
@@ -117,6 +116,9 @@ if len(theme) > 0:
 
 texture_manager = TextureManager(dpg.add_texture_registry())
 file_number = utils.next_file_number(config.SAVE_FILE_PATTERN)
+
+# Widgets to disable when generating.
+disable_widgets = None
 
 base_image_aspect_ratio = None
 last_step_latents = []
@@ -293,9 +295,11 @@ def generate_image_callback():
         try:
             imagen.set_clip_skip_amount(clip_skip)
         except ValueError as e:
-            logger.error(str(e))
+            logger.error(f"An error occurred while trying to set clip skip: {e}")
 
     def prepare_UI():
+        global disable_widgets
+
         dpg.show_item("gen_status_group")
         dpg.show_item("progress_bar")
         dpg.hide_item("info_group")
@@ -303,14 +307,16 @@ def generate_image_callback():
         dpg.hide_item("output_image_group")
         dpg.hide_item("status_text")
 
-        for child in dpg.get_item_children("advanced_config")[1]:
-            # Ignore tooltips.
-            if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
-                continue
+        if disable_widgets is None:
+            disable_widgets = [
+                child
+                for child in dpg.get_item_children("advanced_config")[1]
+                if dpg.get_item_type(child) != "mvAppItemType::mvTooltip"
+            ]
+            disable_widgets.append("generate_btn")
 
+        for child in disable_widgets:
             dpg.disable_item(child)
-
-        dpg.disable_item("generate_btn")
 
     def finish_generation_callback(
         images: list, total_time: float, killed: bool = False
@@ -320,22 +326,17 @@ def generate_image_callback():
 
         last_step_latents = []
 
-        for child in dpg.get_item_children("advanced_config")[1]:
-            # Ignore tooltips.
-            if dpg.get_item_type(child) == "mvAppItemType::mvTooltip":
-                continue
-
+        for child in disable_widgets:
             dpg.enable_item(child)
-
-        dpg.enable_item("generate_btn")
 
         dpg.hide_item("gen_status_group")
         dpg.hide_item("progress_bar")
 
         if not images:
             return
-        elif isinstance(images, Exception):
-            status(f"Generation Error: {images}", None)
+
+        if isinstance(images, Exception):
+            status(f"An error occurred during generation: {images}", None)
             logger.error(str(images))
             return
 
@@ -411,7 +412,7 @@ def checkbox_callback(tag: str, value: bool):
     Callback for most checkbox settings.
     Enables and disables settings based on the tag.
     """
-    if getattr(imagen, f"{tag}_enabled", None) == value:
+    if getattr(imagen, f"{tag}_enabled", value) == value:
         return
 
     func_name = f'{"enable_" if value else "disable_"}{tag}'
@@ -428,7 +429,7 @@ def toggle_xformers_callback(_, value: bool):
     if not torch.cuda.is_available():
         if value:
             dpg.set_value("xformers_memory_attention", False)
-            status("Xformers is only available for cuda.", logger.error)
+            status("XFormers is only available for CUDA GPUs.", logger.error)
 
         return
 
@@ -438,7 +439,7 @@ def toggle_xformers_callback(_, value: bool):
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
         status(
-            "You don't have xformers installed. Please run `pip3 install xformers`.",
+            "You don't have XFormers installed. Please run `pip3 install xformers`.",
             logger.error,
         )
 
@@ -458,6 +459,7 @@ def change_pipeline_callback(_, pipeline: str):
             imagen = Text2Img.from_class(imagen)
             dpg.hide_item("base_image_group")
             dpg.hide_item("strength_group")
+
         case "SDImg2Img":
             imagen = SDImg2Img.from_class(imagen)
             dpg.show_item("base_image_group")
@@ -492,7 +494,9 @@ def base_image_path_callback():
         status("Base image path does not exist.", None)
         return
 
-    image_size = imagesize.get(base_image_path)
+    from imagesize import get as get_imsize
+
+    image_size = get_imsize(base_image_path)
     if image_size == (-1, -1):
         status("Base image path is not an image file.", None)
         return
@@ -638,16 +642,14 @@ def load_settings(settings: dict):
                 logger.error("Pipeline could not be understood.")
         elif setting == "loras":
             # Split reformatted lora string.
-            loras = [re.sub("\\(?=[,;])", "", value) for value in value.split(";")]
-
-            for lora in loras:
-                imagen.load_lora(lora)
+            for lora in value.split(";"):
+                path = re.sub("\\(?=[,;])", "", lora)
+                imagen.load_lora(path)
         elif setting == "embeddings":
             # Split reformatted embedding string.
-            embeddings = [re.sub("\\(?=[,;])", "", value) for value in value.split(";")]
-
-            for embedding in embeddings:
-                imagen.load_embedding_model(embedding)
+            for embed in value.split(";"):
+                path = re.sub("\\(?=[,;])", "", embed)
+                imagen.load_embedding_model(path)
         elif setting == "clip_skip":
             imagen.set_clip_skip_amount(clip_skip := int(value))
             dpg.set_value("clip_skip", clip_skip)
@@ -745,6 +747,7 @@ def save_settings_callback():
             callback=lambda: load_save(name),
             parent="saves_menu",
         )
+
     dpg.hide_item("save_settings_dialog")
 
 
@@ -781,7 +784,11 @@ def delete_save(name: str):
 def reuse_seed_callback():
     """Callback to reuse seed of currently shown image for generation."""
     image = texture_manager.current()[1]
-    seed = image.original_image.seed if hasattr(image, "original_image") else image.seed
+
+    try:
+        seed = image.seed
+    except AttributeError:
+        seed = image.original_image.seed
 
     dpg.set_value("seed", seed)
 
