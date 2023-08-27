@@ -435,8 +435,13 @@ with dpg.window(tag="window"):
 
     dpg.bind_font(default_font)
 
+with dpg.theme() as no_winborder_theme:
+    with dpg.theme_component(dpg.mvWindowAppItem):
+        dpg.add_theme_style(dpg.mvStyleVar_WindowBorderSize, 0.0, 0.0)
+
 del user_settings
 dpg.set_primary_window("window", True)
+dpg.bind_item_theme("window", no_winborder_theme)
 
 if __name__ == "__main__":
     logger.success("Starting GUI...")
