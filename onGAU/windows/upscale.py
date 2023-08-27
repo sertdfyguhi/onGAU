@@ -60,7 +60,10 @@ def toggle_xformers_callback(_, value: bool):
     if not torch.cuda.is_available():
         if value:
             dpg.set_value("u_xformers_memory_attention", False)
-            status("Xformers is only available for cuda.", logger.error)
+            status(
+                "xformers memory attention is only available for CUDA GPUs.",
+                logger.error,
+            )
 
         return
 
@@ -75,6 +78,20 @@ def toggle_xformers_callback(_, value: bool):
         )
 
 
+def finish_upscale_callback(upscaled, error):
+    dpg.set_item_label("upscale_button", "Upscale Image")
+    update_window_title()
+
+    if error:
+        status(str(error), logger.error)
+        return
+
+    logger.success("Finished upscaling.")
+
+    texture_manager.update(upscaled)
+    update_image_widget(*texture_manager.current())
+
+
 def upscale_image_callback():
     """Callback to upscale the currently shown image."""
     global upscaler, upscaler_type
@@ -86,7 +103,7 @@ def upscale_image_callback():
         status("Upscale model path has not been set.", logger.error)
         return
 
-    model_path = utils.append_dir_if_startswith(model, FILE_DIR, "models/")
+    model = utils.append_dir_if_startswith(model, FILE_DIR, "models/")
 
     # Initialize the ESRGAN model if it hasn't been initialized yet.
     if not upscaler or upscaler_type_ != upscaler_type:
@@ -100,13 +117,13 @@ def upscale_image_callback():
             match upscaler_type:
                 case "RealESRGAN":
                     try:
-                        upscaler = RealESRGAN(model_path, config.DEVICE)
+                        upscaler = RealESRGAN(model, config.DEVICE)
                     except ValueError as e:  # When model type cannot be determined.
                         status(str(e), logger.error)
                         return
 
                 case "Latent":
-                    upscaler = LatentUpscaler(model_path, config.DEVICE)
+                    upscaler = LatentUpscaler(model, config.DEVICE)
                     upscaler.disable_safety_checker()
 
                     for tag in ESRGAN_HIDE_ITEMS:
@@ -121,19 +138,6 @@ def upscale_image_callback():
     update_window_title("Upscaling image...")
     dpg.set_item_label("upscale_button", "Upscaling image...")
 
-    def callback(upscaled, error):
-        dpg.set_item_label("upscale_button", "Upscale Image")
-        update_window_title()
-
-        if error:
-            status(str(error), logger.error)
-            return
-
-        logger.success("Finished upscaling.")
-
-        texture_manager.update(upscaled)
-        update_image_widget(*texture_manager.current())
-
     match upscaler_type:
         case "RealESRGAN":
             # Upscaling causes first step to take extra time.
@@ -141,7 +145,7 @@ def upscale_image_callback():
             pipelines.upscale(
                 upscaler,
                 texture_manager.current()[1],
-                callback,
+                finish_upscale_callback,
                 upscale=dpg.get_value("upscale_amount"),
             )
         case "Latent":
@@ -149,7 +153,7 @@ def upscale_image_callback():
                 upscaler,
                 # Change to using latents.
                 texture_manager.current()[1],
-                callback,
+                finish_upscale_callback,
             )
 
 

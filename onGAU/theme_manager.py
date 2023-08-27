@@ -34,7 +34,7 @@ class ThemeManager:
             except json.JSONDecodeError as e:
                 logger.error(f'Error reading theme "{fp}": {e}')
 
-    def load_theme(self, name: str):
+    def load_theme(self, name: str) -> None:
         """Loads a theme."""
         if name not in self.themes:
             raise ValueError("Theme doesn't exist.")

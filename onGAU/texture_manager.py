@@ -48,6 +48,7 @@ class TextureManager:
             return
 
         self._image_index += 1
+
         return self._textures[self._image_index], self._images[self._image_index]
 
     def previous(self) -> tuple[str | int, GeneratedImage | GeneratedLatents]:
@@ -56,6 +57,7 @@ class TextureManager:
             return
 
         self._image_index -= 1
+
         return self._textures[self._image_index], self._images[self._image_index]
 
     def current(self) -> tuple[str | int, GeneratedImage | GeneratedLatents]:
@@ -68,10 +70,9 @@ class TextureManager:
             index = self._image_index
 
         del self._images[index].image
+        dpg.delete_item(self._textures[index])
 
         self._images[index] = new
-
-        dpg.delete_item(self._textures[index])
 
         self._textures[index] = dpg.add_static_texture(
             width=new.width,

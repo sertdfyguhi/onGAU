@@ -18,6 +18,8 @@ dpg.create_context()
 FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
 FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
 
+GENERATING_MESSAGE = logger.create("Generating... ", [logger.INFO, logger.BOLD])
+
 print(
     logger.create(
         f"Using device {logger.create(config.DEVICE, [logger.BOLD])}.", [logger.INFO]
@@ -215,6 +217,26 @@ def update_image_widget(texture_tag: str | int, image: GeneratedImage):
         )
 
 
+def load_model(model_path: str):
+    """Loads a new model."""
+    status(f"Loading {model_path}...")
+    update_window_title(f"Loading {model_path}...")
+
+    try:
+        imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
+    except (
+        RuntimeError,
+        FileNotFoundError,
+    ) as e:  # When compel prompt weighting is enabled / model is not found.
+        status(str(e), logger.error)
+        update_window_title()
+        return 1
+
+    dpg.hide_item("status_text")
+    update_window_title()
+    return 0
+
+
 def gen_progress_callback(step: int, step_count: int, elapsed_time: float, latents):
     """Callback to update UI to show generation progress."""
     global last_step_latents, gen_status
@@ -233,7 +255,7 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
         # Continuously check for restart.
         while gen_status == 2:
             # Sleep to avoid using too much resources.
-            time.sleep(0.5)
+            time.sleep(0.3)
 
         # If exit generation is called.
         if gen_status == 3:
@@ -248,9 +270,7 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
     eta = (step_count - step) * elapsed_time
     overlay = f"{round(progress * 100)}% {elapsed_time:.1f}s {step}/{step_count} ETA: {eta:.1f}s"
 
-    print(
-        f"{logger.create('Generating... ', [logger.INFO, logger.BOLD])}{logger.create(overlay, [logger.INFO])}"
-    )
+    print(f"{GENERATING_MESSAGE}{logger.create(overlay, [logger.INFO])}")
 
     update_window_title(f"Generating... {overlay}")
 
@@ -260,23 +280,82 @@ def gen_progress_callback(step: int, step_count: int, elapsed_time: float, laten
     )
 
 
-def load_model(model_path: str):
-    """Loads a new model."""
-    status(f"Loading {model_path}...")
-    update_window_title(f"Loading {model_path}...")
+def prepare_UI():
+    global disable_widgets
 
-    try:
-        imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
-    except (
-        RuntimeError,
-        FileNotFoundError,
-    ) as e:  # When compel prompt weighting is enabled / model is not found.
-        status(str(e), logger.error)
-        update_window_title()
-        return True
-
+    dpg.show_item("gen_status_group")
+    dpg.show_item("progress_bar")
+    dpg.hide_item("info_group")
+    dpg.hide_item("output_button_group")
+    dpg.hide_item("output_image_group")
     dpg.hide_item("status_text")
+
+    if disable_widgets is None:
+        disable_widgets = [
+            child
+            for child in dpg.get_item_children("advanced_config")[1]
+            if dpg.get_item_type(child) != "mvAppItemType::mvTooltip"
+        ]
+        disable_widgets.append("generate_btn")
+
+    for child in disable_widgets:
+        dpg.disable_item(child)
+
+
+def finish_generation_callback(images: list, total_time: float, killed: bool = False):
+    """Callback to run after generation thread finishes generation."""
+    global last_step_latents
+
+    last_step_latents = []
+
+    for child in disable_widgets:
+        dpg.enable_item(child)
+
+    dpg.hide_item("gen_status_group")
+    dpg.hide_item("progress_bar")
+
+    # Reset progress bar..
+    dpg.set_value("progress_bar", 0.0)
+    dpg.configure_item("progress_bar", overlay="0%")
+
+    if not images:
+        return
+
+    if isinstance(images, Exception):
+        status(f"An error occurred during generation: {images}", None)
+        logger.error(str(images))
+        return
+
+    # Add an "s" if there are more than 1 image.
+    plural = "s" if len(images) > 1 else ""
+
+    logger.success(f"Finished generating image{plural}.")
+
+    average_step_time = total_time / (images[0].step_count * len(images))
+    info = f"""Average step time: {average_step_time:.1f}s
+Total time: {total_time:.1f}s"""
+
+    logger.info(
+        f"Seed{plural}: {', '.join([str(image.seed) for image in images])}\n{info}"
+    )
+
+    dpg.set_value("info_text", f"Current Image Seed: {images[0].seed}\n{info}")
+
+    if not killed:
+        # Prepare the images to be shown in UI.
+        texture_manager.prepare(images)
+        update_image_widget(*texture_manager.current())
+    else:
+        logger.success("Generation killed.")
+
     update_window_title()
+
+    # Show image index counter.
+    dpg.set_value("output_image_index", texture_manager.to_counter_string())
+
+    dpg.show_item("info_group")
+    dpg.show_item("output_button_group")
+    dpg.show_item("output_image_group")
 
 
 def generate_image_callback():
@@ -296,84 +375,6 @@ def generate_image_callback():
             imagen.set_clip_skip_amount(clip_skip)
         except ValueError as e:
             logger.error(f"An error occurred while trying to set clip skip: {e}")
-
-    def prepare_UI():
-        global disable_widgets
-
-        dpg.show_item("gen_status_group")
-        dpg.show_item("progress_bar")
-        dpg.hide_item("info_group")
-        dpg.hide_item("output_button_group")
-        dpg.hide_item("output_image_group")
-        dpg.hide_item("status_text")
-
-        if disable_widgets is None:
-            disable_widgets = [
-                child
-                for child in dpg.get_item_children("advanced_config")[1]
-                if dpg.get_item_type(child) != "mvAppItemType::mvTooltip"
-            ]
-            disable_widgets.append("generate_btn")
-
-        for child in disable_widgets:
-            dpg.disable_item(child)
-
-    def finish_generation_callback(
-        images: list, total_time: float, killed: bool = False
-    ):
-        """Callback to run after generation thread finishes generation."""
-        global last_step_latents
-
-        last_step_latents = []
-
-        for child in disable_widgets:
-            dpg.enable_item(child)
-
-        dpg.hide_item("gen_status_group")
-        dpg.hide_item("progress_bar")
-
-        if not images:
-            return
-
-        if isinstance(images, Exception):
-            status(f"An error occurred during generation: {images}", None)
-            logger.error(str(images))
-            return
-
-        # Add an "s" if there are more than 1 image.
-        plural = "s" if len(images) > 1 else ""
-
-        logger.success(f"Finished generating image{plural}.")
-
-        average_step_time = total_time / (images[0].step_count * len(images))
-        info = f"""Average step time: {average_step_time:.1f}s
-Total time: {total_time:.1f}s"""
-
-        logger.info(
-            f"Seed{plural}: {', '.join([str(image.seed) for image in images])}\n{info}"
-        )
-
-        dpg.set_value("info_text", f"Current Image Seed: {images[0].seed}\n{info}")
-
-        if not killed:
-            # Prepare the images to be shown in UI.
-            texture_manager.prepare(images)
-            update_image_widget(*texture_manager.current())
-        else:
-            logger.success("Generation killed.")
-
-        update_window_title()
-
-        # Reset progress bar..
-        dpg.set_value("progress_bar", 0.0)
-        dpg.configure_item("progress_bar", overlay="0%")
-
-        # Show image index counter.
-        dpg.set_value("output_image_index", texture_manager.to_counter_string())
-
-        dpg.show_item("info_group")
-        dpg.show_item("output_button_group")
-        dpg.show_item("output_image_group")
 
     # Start thread to generate image.
     if type(imagen) == Text2Img:
@@ -429,7 +430,10 @@ def toggle_xformers_callback(_, value: bool):
     if not torch.cuda.is_available():
         if value:
             dpg.set_value("xformers_memory_attention", False)
-            status("XFormers is only available for CUDA GPUs.", logger.error)
+            status(
+                "xformers memory attention is only available for CUDA GPUs.",
+                logger.error,
+            )
 
         return
 
@@ -577,7 +581,6 @@ def interrupt_callback():
             imagen.convert_latent_to_image(latent)[0] for latent in last_step_latents
         ]
 
-        # set_value doesn't work for some reason.
         dpg.set_item_label("interrupt_btn", "Continue Generation")
 
         texture_manager.prepare(images)
@@ -597,84 +600,92 @@ def load_settings(settings: dict):
         if not dpg.does_item_exist(setting):
             continue
 
-        if setting == "model" and value != imagen.model_path:
-            if load_model(value):
-                continue
-            dpg.set_value("model", value)
-        elif setting == "scheduler":
-            load_scheduler(value)
-            dpg.set_value(setting, value)
-        elif setting == "pipeline":
-            use_LPWSD = (
-                settings["lpwsd_pipeline"] == "True"
-                if "lpwsd_pipeline" in settings
-                else value == "StableDiffusionLongPromptWeightingPipeline"
-            )
+        match setting:
+            case "model":
+                if value == imagen.model_path or load_model(value):
+                    continue
 
-            if (
-                same_pipe := (
-                    value in [type(imagen).__name__, imagen.pipeline.__name__]
-                )
-                and use_LPWSD == imagen.lpw_stable_diffusion_used
-            ):
-                continue
+                dpg.set_value("model", value)
 
-            if use_LPWSD:
-                # Force LPWSD pipeline without loading.
-                imagen.lpw_stable_diffusion_used = True
-
-            # Convert pipeline class into imagen class.
-            if value in [
-                "StableDiffusionPipeline",
-                "StableDiffusionLongPromptWeightingPipeline",
-                "Text2Img",
-            ]:
-                if use_LPWSD and same_pipe:
-                    lpwsd_callback(None, True)
-                    dpg.set_value("lpwsd_pipeline", True)
-                else:
-                    change_pipeline_callback(None, "Text2Img")
-                    dpg.set_value(setting, "Text2Img")
-            elif value in ["StableDiffusionImg2ImgPipeline", "SDImg2Img"]:
-                change_pipeline_callback(None, "SDImg2Img")
-                dpg.set_value(setting, "SDImg2Img")
-            else:
-                logger.error("Pipeline could not be understood.")
-        elif setting == "loras":
-            # Split reformatted lora string.
-            for lora in value.split(";"):
-                path = re.sub("\\(?=[,;])", "", lora)
-                imagen.load_lora(path)
-        elif setting == "embeddings":
-            # Split reformatted embedding string.
-            for embed in value.split(";"):
-                path = re.sub("\\(?=[,;])", "", embed)
-                imagen.load_embedding_model(path)
-        elif setting == "clip_skip":
-            imagen.set_clip_skip_amount(clip_skip := int(value))
-            dpg.set_value("clip_skip", clip_skip)
-        elif setting == "lpwsd_pipeline":
-            use_LPWSD = value == "True"
-            if use_LPWSD == imagen.lpw_stable_diffusion_used:
-                continue
-
-            lpwsd_callback(None, use_LPWSD)
-        else:
-            widget_type = dpg.get_item_type(setting)
-            # print(setting, value)
-
-            # Check the type of a widget to determine what type to cast to.
-            if "Int" in widget_type:
-                dpg.set_value(setting, int(value))
-            elif "Float" in widget_type:
-                dpg.set_value(setting, float(value))
-            elif "Checkbox" in widget_type:
-                enabled = value == "True"
-
-                dpg.get_item_callback(setting)(setting, enabled)
-                dpg.set_value(setting, enabled)
-            else:
+            case "scheduler":
+                load_scheduler(value)
                 dpg.set_value(setting, value)
+
+            case "pipeline":
+                use_LPWSD = (
+                    settings["lpwsd_pipeline"] == "True"
+                    if "lpwsd_pipeline" in settings
+                    else value == "StableDiffusionLongPromptWeightingPipeline"
+                )
+
+                same_pipeline = value in [
+                    type(imagen).__name__,
+                    imagen.pipeline.__name__,
+                ]
+
+                if same_pipeline and use_LPWSD == imagen.lpw_stable_diffusion_used:
+                    continue
+
+                if use_LPWSD:
+                    # Force LPWSD pipeline without loading.
+                    imagen.lpw_stable_diffusion_used = True
+
+                # Convert pipeline class into imagen class.
+                if value in [
+                    "StableDiffusionPipeline",
+                    "StableDiffusionLongPromptWeightingPipeline",
+                    "Text2Img",
+                ]:
+                    if same_pipeline and use_LPWSD:
+                        lpwsd_callback(None, True)
+                        dpg.set_value("lpwsd_pipeline", True)
+                    else:
+                        change_pipeline_callback(None, "Text2Img")
+                        dpg.set_value(setting, "Text2Img")
+                elif value in ["StableDiffusionImg2ImgPipeline", "SDImg2Img"]:
+                    change_pipeline_callback(None, "SDImg2Img")
+                    dpg.set_value(setting, "SDImg2Img")
+                else:
+                    logger.error("Pipeline could not be understood.")
+
+            case "loras":
+                # Split reformatted lora string.
+                for lora in value.split(";"):
+                    path = re.sub("\\(?=[,;])", "", lora)
+                    imagen.load_lora(path)
+
+            case "embeddings":
+                # Split reformatted embedding string.
+                for embed in value.split(";"):
+                    path = re.sub("\\(?=[,;])", "", embed)
+                    imagen.load_embedding_model(path)
+
+            case "clip_skip":
+                imagen.set_clip_skip_amount(clip_skip := int(value))
+                dpg.set_value("clip_skip", clip_skip)
+
+            # case "lpwsd_pipeline":
+            #     use_LPWSD = value == "True"
+            #     if use_LPWSD == imagen.lpw_stable_diffusion_used:
+            #         continue
+
+            #     lpwsd_callback(None, use_LPWSD)
+
+            case _:
+                widget_type = dpg.get_item_type(setting)
+
+                # Check the type of a widget to determine what type to cast to.
+                if "Int" in widget_type:
+                    dpg.set_value(setting, int(value))
+                elif "Float" in widget_type:
+                    dpg.set_value(setting, float(value))
+                elif "Checkbox" in widget_type:
+                    enabled = value == "True"
+
+                    dpg.get_item_callback(setting)(setting, enabled)
+                    dpg.set_value(setting, enabled)
+                else:
+                    dpg.set_value(setting, value)
 
 
 def load_from_image_callback():
