@@ -153,15 +153,25 @@ with dpg.window(tag="window"):
             callback=windows.merge.toggle,
         )
 
-    dpg.add_input_text(
-        label="Model",
-        default_value=imagen.model_path,
-        width=config.ITEM_WIDTH,
-        tag="model",
-    )
-    add_tooltip(
-        "The path to a Stable Diffusion model to use. (HuggingFace model or local model)"
-    )
+    with dpg.group(horizontal=True):
+        dpg.add_input_text(
+            label="Model",
+            default_value=imagen.model_path,
+            width=config.ITEM_WIDTH,
+            tag="model",
+        )
+        add_tooltip(
+            "The path to a Stable Diffusion model to use. (HuggingFace model or local model)"
+        )
+
+        dpg.add_combo(
+            items=["fp32", "fp16"],
+            default_value=user_settings["precision"],
+            tag="precision",
+            width=config.FONT_SIZE * 4 + 5,
+            callback=precision_callback,
+        )
+        add_tooltip("The model floating-point precision.")
 
     dpg.add_input_text(
         label="Prompt",

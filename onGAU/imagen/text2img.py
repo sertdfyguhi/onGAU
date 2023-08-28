@@ -10,10 +10,16 @@ import time
 
 # stable diffusion model
 class Text2Img(BaseImagen):
-    def set_model(self, model: str, use_lpw_stable_diffusion: bool = False):
+    def set_model(
+        self,
+        model: str,
+        precision: str = "fp32",
+        use_lpw_stable_diffusion: bool = False,
+    ):
         self._set_model(
             model,
-            StableDiffusionPipeline,
+            precision=precision,
+            pipeline=StableDiffusionPipeline,
             use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
 

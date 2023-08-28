@@ -46,7 +46,9 @@ use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
 logger.info(f"Loading {model_path}...")
 
 try:
-    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
+    imagen = imagen_class(
+        model_path, config.DEVICE, user_settings["precision"], use_LPWSD
+    )
 except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
@@ -223,7 +225,10 @@ def load_model(model_path: str):
     update_window_title(f"Loading {model_path}...")
 
     try:
-        imagen.set_model(model_path, imagen.lpw_stable_diffusion_used)
+        imagen.set_model(
+            model_path,
+            use_lpw_stable_diffusion=imagen.lpw_stable_diffusion_used,
+        )
     except (
         RuntimeError,
         FileNotFoundError,
@@ -517,7 +522,7 @@ def lpwsd_callback(_, value: bool):
     """Callback to toggle Long Prompt Weighting Stable Diffusion pipeline."""
     status(f"Loading{' LPW' if value else ''} Stable Diffusion pipeline...")
 
-    imagen.set_model(imagen.model_path, value)
+    imagen.set_model(imagen.model_path, use_lpw_stable_diffusion=value)
 
     dpg.hide_item("status_text")  # remove any errors shown before
 
@@ -824,3 +829,10 @@ def reload_theme_callback():
             callback=(lambda n: lambda: theme_manager.load_theme(n))(name),
             parent="theme_buttons",
         )
+
+
+def precision_callback(_, precision: str):
+    """Callback to set model precision."""
+    logger.info(f"Loading {precision}...")
+    imagen.set_precision(precision)
+    logger.success(f"Loaded {precision}!")

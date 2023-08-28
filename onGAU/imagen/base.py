@@ -87,11 +87,21 @@ StableDiffusionLongPromptWeightingPipeline = get_class_from_dynamic_module(
 )
 
 
+def convert_str_to_dtype(precision: str):
+    if precision == "fp32":
+        return torch.float32
+    elif precision == "fp16":
+        return torch.float16
+    else:
+        raise ValueError("Invalid model precision.")
+
+
 class BaseImagen:
     def __init__(
         self,
         model_path: str,
         device: str,
+        precision: str = "fp32",
         use_lpw_stable_diffusion: bool = False,
         max_embeddings_multiples: int = 5,
     ) -> None:
@@ -112,7 +122,7 @@ class BaseImagen:
         self.xformers_memory_attention_enabled = False
         self.compel_weighting_enabled = False
 
-        self.set_model(model_path, use_lpw_stable_diffusion)
+        self.set_model(model_path, precision, use_lpw_stable_diffusion)
 
     @property
     def pipeline(self):
@@ -122,7 +132,10 @@ class BaseImagen:
     def from_class(cls, original):
         """Create a new imagen object from another imagen object."""
         c = cls(
-            original.model_path, original.device, original.lpw_stable_diffusion_used
+            original.model_path,
+            original.device,
+            original.precision,
+            original.lpw_stable_diffusion_used,
         )  # initialize class
 
         c.set_clip_skip_amount(original.clip_skip_amount)
@@ -159,6 +172,7 @@ class BaseImagen:
     def _set_model(
         self,
         model: str,
+        precision: str | None = None,
         pipeline: DiffusionPipeline = StableDiffusionPipeline,
         scheduler: str = None,
         use_lpw_stable_diffusion: bool = False,
@@ -180,6 +194,9 @@ class BaseImagen:
             if hasattr(self, "_orig_safety_checker"):
                 del self._orig_safety_checker
 
+        if precision is None:
+            precision = self.precision or "fp32"
+
         try:
             is_file = model.endswith((".ckpt", ".safetensors"))
 
@@ -187,6 +204,7 @@ class BaseImagen:
                 pipeline.from_single_file if is_file else pipeline.from_pretrained
             )(
                 model,
+                torch_dtype=convert_str_to_dtype(precision),
                 custom_pipeline="lpw_stable_diffusion"
                 if use_lpw_stable_diffusion
                 else None,
@@ -206,6 +224,7 @@ class BaseImagen:
         else:
             self.scheduler = type(self._pipeline.scheduler).__name__
 
+        self.precision = precision
         self.lpw_stable_diffusion_used = use_lpw_stable_diffusion
 
         # remove progress bar logging
@@ -345,6 +364,11 @@ class BaseImagen:
         self._pipeline.save_pretrained(dir_path)
 
         self.set_clip_skip_amount(orig_clip_skip)
+
+    def set_precision(self, precision: str):
+        """Set model precision. fp16 or fp32."""
+        self._pipeline = self._pipeline.to(torch_dtype=convert_str_to_dtype(precision))
+        self.precision = precision
 
     def enable_safety_checker(self):
         """Enable the safety checker."""

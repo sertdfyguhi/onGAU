@@ -22,10 +22,16 @@ class Img2ImgGeneratedLatents(GeneratedLatents):
 
 
 class SDImg2Img(BaseImagen):
-    def set_model(self, model: str, use_lpw_stable_diffusion: bool = False):
+    def set_model(
+        self,
+        model: str,
+        precision: str = "fp32",
+        use_lpw_stable_diffusion: bool = False,
+    ):
         self._set_model(
             model,
-            StableDiffusionImg2ImgPipeline,
+            precision=precision,
+            pipeline=StableDiffusionImg2ImgPipeline,
             use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
 
