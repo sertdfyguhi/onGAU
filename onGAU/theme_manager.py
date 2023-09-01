@@ -83,5 +83,7 @@ class ThemeManager:
 
             dpg.bind_theme(theme)
             self.current_theme = name
-        except AttributeError as e:
-            logger.error(f'Error while loading theme "{name}": {e}')
+        except KeyError as e:
+            logger.error(
+                f'Color value "{e.args[0]}" not found in theme "{name}". Using default theme.'
+            )
