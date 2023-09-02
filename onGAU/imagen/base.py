@@ -217,6 +217,8 @@ class BaseImagen:
         except HFValidationError:
             raise FileNotFoundError(f"{model} does not exist.")
 
+        self.set_device(self.device)
+
         if scheduler:
             self.set_scheduler(scheduler)
         elif self.scheduler:
@@ -261,8 +263,6 @@ class BaseImagen:
 
         for lora in self.loras_loaded:
             self.load_lora(lora)
-
-        self.set_device(self.device)
 
     def load_lpw_stable_diffusion(self):
         """Load Long Prompt Weighting Stable Diffusion pipeline."""

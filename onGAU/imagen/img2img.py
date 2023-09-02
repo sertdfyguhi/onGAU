@@ -109,14 +109,17 @@ class SDImg2Img(BaseImagen):
         }
 
         last_step_time = time.time()
+        step_times = []
 
         def callback_wrapper(step: int, _, latents):
-            nonlocal last_step_time
+            nonlocal last_step_time, step_times
+
+            step_times.append(time.time() - last_step_time)
 
             progress_callback(
                 step,
                 step_count,
-                time.time() - last_step_time,
+                step_times,
                 Img2ImgGeneratedLatents(
                     **out_image_kwargs, seeds=seeds, latents=latents
                 ),
