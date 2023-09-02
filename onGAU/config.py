@@ -46,5 +46,6 @@ DEFAULT_LPWSD_PIPELINE = True
 # UI configurations.
 FONT = "PTMono-Regular.ttf"  # place custom fonts in fonts directory
 FONT_SIZE = 12.6
-ITEM_WIDTH = 280
+PROMPT_INPUT_WIDTH = 290
+ITEM_WIDTH = 250
 WINDOW_SIZE = (1280, 720)  # width, height

@@ -157,7 +157,7 @@ with dpg.window(tag="window"):
         dpg.add_input_text(
             label="Model",
             default_value=imagen.model_path,
-            width=config.ITEM_WIDTH,
+            width=config.PROMPT_INPUT_WIDTH,
             tag="model",
         )
         add_tooltip(
@@ -176,7 +176,9 @@ with dpg.window(tag="window"):
     dpg.add_input_text(
         label="Prompt",
         default_value=user_settings["prompt"],
-        width=config.ITEM_WIDTH,
+        width=config.PROMPT_INPUT_WIDTH,
+        height=config.FONT_SIZE * 3,
+        multiline=True,
         tag="prompt",
     )
     add_tooltip("The instructions of the generated image.")
@@ -184,7 +186,9 @@ with dpg.window(tag="window"):
     dpg.add_input_text(
         label="Negative Prompt",
         default_value=user_settings["negative_prompt"],
-        width=config.ITEM_WIDTH,
+        width=config.PROMPT_INPUT_WIDTH,
+        height=config.FONT_SIZE * 3,
+        multiline=True,
         tag="negative_prompt",
     )
     add_tooltip("The instructions of what to remove of the generated image.")
