@@ -242,14 +242,16 @@ def load_model(model_path: str):
     return 0
 
 
-def gen_progress_callback(step: int, step_count: int, step_times: list[float], latents):
+def gen_progress_callback(
+    step: int, step_count: int, step_time: float, elapsed_time, latents
+):
     """Callback to update UI to show generation progress."""
     global last_step_latents, gen_status
 
     # step progress video mode
     # imagen.convert_latent_to_image(latents)[0].image.save(f"saves/{step}.png")
 
-    if step == 0:
+    if step == 1:
         last_step_latents.append(latents)
 
     # Check if generation has been interrupted.
@@ -272,8 +274,10 @@ def gen_progress_callback(step: int, step_count: int, step_times: list[float], l
 
     # Calculate the percentage
     progress = step / step_count
-    eta = (step_count - step) * (sum(step_times) / len(step_times))
-    overlay = f"{round(progress * 100)}% {step_times[-1]:.1f}s {step}/{step_count} ETA: {eta:.1f}s"
+    eta = (step_count - step) * (elapsed_time / step)
+    overlay = (
+        f"{round(progress * 100)}% {step_time:.1f}s {step}/{step_count} ETA: {eta:.1f}s"
+    )
 
     print(f"{GENERATING_MESSAGE}{logger.create(overlay, [logger.INFO])}")
 

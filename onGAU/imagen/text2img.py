@@ -92,17 +92,16 @@ class Text2Img(BaseImagen):
         }
 
         last_step_time = time.time()
-        step_times = []
+        start_time = time.time()
 
         def callback_wrapper(step: int, _, latents):
-            nonlocal last_step_time, step_times
-
-            step_times.append(time.time() - last_step_time)
+            nonlocal last_step_time
 
             progress_callback(
-                step,
+                step + 1,
                 step_count,
-                step_times,
+                time.time() - last_step_time,
+                time.time() - start_time,
                 GeneratedLatents(**out_image_kwargs, seeds=seeds, latents=latents),
             )
 
