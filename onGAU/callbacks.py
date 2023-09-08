@@ -6,8 +6,6 @@ import logger, config, pipelines, utils
 
 from PIL import Image, UnidentifiedImageError
 import dearpygui.dearpygui as dpg
-import subprocess
-import platform
 import torch
 import time
 import os
@@ -844,15 +842,12 @@ def precision_callback(_, precision: str):
 
 
 def open_save_folder():
-    """Callback to open save folder in file explorer."""
+    """Callback to open save folder in FM."""
     path = os.path.abspath(os.path.dirname(config.SAVE_FILE_PATTERN))
+    utils.open_path(path)
 
-    match platform.system():
-        case "Windows":
-            subprocess.Popen(["explorer", path])
 
-        case "Darwin":
-            subprocess.Popen(["open", "-R", path])
-
-        case "Linux":
-            subprocess.Popen(["xdg-open", path])
+def open_models_folder():
+    """Callback to open models folder in FM."""
+    path = os.path.join(os.path.dirname(__file__), 'models')
+    utils.open_path(path)

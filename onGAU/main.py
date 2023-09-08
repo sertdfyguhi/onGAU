@@ -151,6 +151,10 @@ with dpg.window(tag="window"):
                 label="Open Save Folder",
                 callback=open_save_folder,
             )
+            dpg.add_menu_item(
+                label="Open Models Folder",
+                callback=open_models_folder,
+            )
 
         dpg.add_menu_item(
             label="Merge",

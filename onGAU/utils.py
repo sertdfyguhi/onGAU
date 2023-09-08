@@ -2,6 +2,9 @@ from imagen import GeneratedImage, GeneratedLatents, LatentUpscaledImage
 
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL.PngImagePlugin import PngInfo
+import subprocess
+import platform
+import logger
 import os
 
 
@@ -92,3 +95,23 @@ def save_image(image_info: GeneratedImage, file_path: str):
         metadata.add_text("base_image_path", info.base_image_path)
 
     image_info.image.save(file_path, pnginfo=metadata)
+
+
+def open_path(path: str) -> None:
+    """Opens a path in the operating system's file manager."""
+    match platform.system():
+        case "Windows":
+            subprocess.Popen(["explorer", path])
+
+        case "Darwin":
+            subprocess.Popen(["open", "-R", path])
+
+        case "Linux":
+            subprocess.Popen(["xdg-open", path])
+
+        case _:
+            logger.warn("Unknown operating system, file may not be opened in FM.")
+            logger.warn(f"Path: {path}")
+
+            # try linux command
+            subprocess.Popen(["xdg-open", path])
