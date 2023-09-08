@@ -2,11 +2,12 @@ from imagen import Text2Img, SDImg2Img, GeneratedImage
 from settings_manager import SettingsManager
 from texture_manager import TextureManager
 from theme_manager import ThemeManager
-import logger, config, pipelines
+import logger, config, pipelines, utils
 
 from PIL import Image, UnidentifiedImageError
 import dearpygui.dearpygui as dpg
-import utils
+import subprocess
+import platform
 import torch
 import time
 import os
@@ -840,3 +841,18 @@ def precision_callback(_, precision: str):
     logger.info(f"Loading {precision}...")
     imagen.set_precision(precision)
     logger.success(f"Loaded {precision}!")
+
+
+def open_save_folder():
+    """Callback to open save folder in file explorer."""
+    path = os.path.abspath(os.path.dirname(config.SAVE_FILE_PATTERN))
+
+    match platform.system():
+        case "Windows":
+            subprocess.Popen(["explorer", path])
+
+        case "Darwin":
+            subprocess.Popen(["open", "-R", path])
+
+        case "Linux":
+            subprocess.Popen(["xdg-open", path])

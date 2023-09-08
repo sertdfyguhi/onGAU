@@ -147,6 +147,10 @@ with dpg.window(tag="window"):
                 label="Load Settings from Image",
                 callback=lambda: toggle_item("image_load_dialog"),
             )
+            dpg.add_menu_item(
+                label="Open Save Folder",
+                callback=open_save_folder,
+            )
 
         dpg.add_menu_item(
             label="Merge",

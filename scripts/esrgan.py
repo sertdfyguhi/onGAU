@@ -14,7 +14,10 @@ def dict_to_PngInfo(info: dict):
     pnginfo = PngInfo()
 
     for key in info:
-        pnginfo.add_text(key, info[key])
+        try:
+            pnginfo.add_text(key, info[key])
+        except Exception as e:
+            print(f'WARNING: Error when adding png metadata: "{key}": {e}')
 
     return pnginfo
 
