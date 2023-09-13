@@ -4,7 +4,6 @@ from callbacks import *
 import windows
 import logger
 import config
-
 import dearpygui.dearpygui as dpg
 import pyperclip
 import atexit

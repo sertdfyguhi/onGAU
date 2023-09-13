@@ -46,7 +46,7 @@ python3 install.py
 - [x] Add tooltips
 - [x] Denoising strength
 - [ ] Change embedding models and loras in app
-- [ ] Rework and organize UI
+- [x] Rework and organize UI
 - [x] Merging models
 - [ ] Add controlnet support
 - [ ] Add super resolution (ESRGAN/SwinIR) support
@@ -54,10 +54,6 @@ python3 install.py
   - [ ] Add SwinIR support
 - [x] Create an install script to easily install UI
 - [x] Interrupt generation process
-- [ ] Compile code into cross platform executable
-  - [ ] Windows binary
-  - [ ] MacOS binary
-  - [ ] Linux binary
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled
   - [x] Use better code to get image size
