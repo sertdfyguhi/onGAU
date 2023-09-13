@@ -97,15 +97,17 @@ class Text2Img(BaseImagen):
         def callback_wrapper(step: int, _, latents):
             nonlocal last_step_time
 
+            now = time.time()
+
             progress_callback(
                 step + 1,
                 step_count,
-                time.time() - last_step_time,
-                time.time() - start_time,
+                now - last_step_time,
+                now - start_time,
                 GeneratedLatents(**out_image_kwargs, seeds=seeds, latents=latents),
             )
 
-            last_step_time = time.time()
+            last_step_time = now
 
         kwargs = {
             "prompt": temp_prompt,

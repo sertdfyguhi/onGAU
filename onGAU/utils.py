@@ -2,6 +2,7 @@ from imagen import GeneratedImage, GeneratedLatents, LatentUpscaledImage
 
 from diffusers import StableDiffusionImg2ImgPipeline
 from PIL.PngImagePlugin import PngInfo
+from math import floor
 import subprocess
 import platform
 import logger
@@ -10,7 +11,6 @@ import os
 
 def next_file_number(path_pattern: str, start_from: int = 1):
     """Iteratively find the next file number using a path pattern."""
-
     i = start_from
 
     while True:
@@ -35,7 +35,7 @@ def resize_size_to_fit(
 
     if height > win_h:
         height = win_h
-        width = int(height * aspect_ratio)
+        width = floor(height * aspect_ratio)
 
     return width, height
 
@@ -45,22 +45,20 @@ def append_dir_if_startswith(path: str, dir: str, startswith: str):
     return os.path.join(dir, path) if path.startswith(startswith) else path
 
 
-def save_image(image_info: GeneratedImage, file_path: str):
+def save_image(info: GeneratedImage, file_path: str):
     """Saves an image using a GeneratedImage object."""
     metadata = PngInfo()
-    info = image_info
+    image = info.image
 
     if (info_t := type(info)) not in [GeneratedImage, GeneratedLatents]:
-        metadata.add_text(
-            "upscaler_type",
-            "Latent" if (is_latent := info_t == LatentUpscaledImage) else "RealESRGAN",
-        )
         metadata.add_text("upscale_model", info.model_path)
 
-        if is_latent:
+        if info_t == LatentUpscaledImage:
+            metadata.add_text("upscaler_type", "Latent")
             metadata.add_text("u_step_count", str(info.step_count))
             metadata.add_text("u_guidance_scale", str(info.guidance_scale))
         else:
+            metadata.add_text("upscaler_type", "RealESRGAN")
             metadata.add_text("upscale_amount", str(info.upscale_amount))
 
         info = info.original_image
@@ -94,7 +92,7 @@ def save_image(image_info: GeneratedImage, file_path: str):
         metadata.add_text("strength", str(info.strength))
         metadata.add_text("base_image_path", info.base_image_path)
 
-    image_info.image.save(file_path, pnginfo=metadata)
+    image.save(file_path, pnginfo=metadata)
 
 
 def open_path(path: str) -> None:

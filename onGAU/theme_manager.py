@@ -22,7 +22,8 @@ class ThemeManager:
         self.themes = {}
 
         for fp in os.listdir(self.theme_dir):
-            theme = json.load(open(os.path.join(self.theme_dir, fp)))
+            with open(os.path.join(self.theme_dir, fp), "r") as f:
+                theme = json.loads(f.read())
 
             try:
                 if theme["name"] in self.themes:

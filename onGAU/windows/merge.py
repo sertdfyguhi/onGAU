@@ -60,14 +60,13 @@ def merge_checkpoint_callback():
 
     if os.path.exists(path):
         while True:
-            save_option = input(f"{path} already exists. Overwrite (y/n): ").lower()
-
-            if save_option in ["y", "yes"]:
+            save_option = input(f"{path} already exists. Overwrite (y/n): ")
+            if save_option.lower() in ["y", "yes"]:
                 break
-            else:
-                path = input("New path: ")
-                if not os.path.exists(path):
-                    break
+
+            path = input("New path: ")
+            if not os.path.exists(path):
+                break
     else:
         os.mkdir(path)
 
@@ -84,9 +83,16 @@ def init():
         dpg.add_input_text(
             label="Merge Path", width=config.ITEM_WIDTH, tag="merge_path_input"
         )
+        add_tooltip("Output path to dump merged model.")
+
         dpg.add_input_text(label="Model 1", tag="model1_input", width=config.ITEM_WIDTH)
+        add_tooltip("Model 1 path.")
+
         dpg.add_input_text(label="Model 2", tag="model2_input", width=config.ITEM_WIDTH)
+        add_tooltip("Model 2 path.")
+
         dpg.add_input_text(label="Model 3", tag="model3_input", width=config.ITEM_WIDTH)
+        add_tooltip('Model 3 path (only for "Add Difference" interpolation method).')
 
         dpg.add_combo(
             items=[
@@ -117,6 +123,7 @@ def init():
         dpg.add_checkbox(
             label="Ignore Text Encoder", default_value=True, tag="ignore_te"
         )
+        add_tooltip("If enabled, the text encoder wouldn't been merged.")
 
         dpg.add_button(
             label="Merge",
