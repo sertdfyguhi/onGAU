@@ -45,6 +45,11 @@ def append_dir_if_startswith(path: str, dir: str, startswith: str):
     return os.path.join(dir, path) if path.startswith(startswith) else path
 
 
+def path_join(paths: list[str]) -> str:
+    """Joins a list of paths into a sanitized string."""
+    return ";".join([path.replace(",", "\\,").replace(";", "\\;") for path in paths])
+
+
 def save_image(info: GeneratedImage, file_path: str):
     """Saves an image using a GeneratedImage object."""
     metadata = PngInfo()
@@ -73,20 +78,8 @@ def save_image(info: GeneratedImage, file_path: str):
     metadata.add_text("seed", str(info.seed))
     metadata.add_text("clip_skip", str(info.clip_skip))
     metadata.add_text("compel_weighting", str(info.compel_weighting))
-    metadata.add_text(
-        "embeddings",
-        ", ".join(
-            [
-                embedding.replace(",", "\\,").replace(";", "\\;")
-                for embedding in info.embeddings
-            ]
-        ),
-    )
-
-    metadata.add_text(
-        "loras",
-        ";".join([lora.replace(",", "\\,").replace(";", "\\;") for lora in info.loras]),
-    )
+    metadata.add_text("embeddings", path_join(info.embeddings))
+    metadata.add_text("loras", path_join(info.loras))
 
     if info.pipeline == StableDiffusionImg2ImgPipeline:
         metadata.add_text("strength", str(info.strength))

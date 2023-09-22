@@ -657,13 +657,17 @@ def load_settings(settings: dict):
                     logger.error("Pipeline could not be understood.")
 
             case "loras":
-                # Split reformatted lora string.
                 for lora in value.split(";"):
                     path = re.sub("\\(?=[,;])", "", lora)
                     imagen.load_lora(path)
 
             case "embeddings":
-                # Split reformatted embedding string.
+                embeds = value.split(";")
+
+                # Fix for ", " joining for embeddings.
+                if len(embeds) == 1:
+                    embeds = value.split(", ")
+
                 for embed in value.split(";"):
                     path = re.sub("\\(?=[,;])", "", embed)
                     imagen.load_embedding_model(path)
@@ -849,5 +853,5 @@ def open_save_folder():
 
 def open_models_folder():
     """Callback to open models folder in FM."""
-    path = os.path.join(os.path.dirname(__file__), 'models')
+    path = os.path.join(os.path.dirname(__file__), "models")
     utils.open_path(path)

@@ -2,7 +2,6 @@ from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
     download_from_original_stable_diffusion_ckpt,
 )
 from safetensors.torch import load_file as _load_file
-from collections import defaultdict
 import torch
 import math
 import os
