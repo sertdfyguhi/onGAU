@@ -1,9 +1,12 @@
 .DS_Store
-models
 __pycache__
-saves*
+stdout*.txt
 setup.py
 test.py
 test.png
-stdout*.txt
+
+saves
 user_settings.ini
+
+models/*
+!PUT MODELS HERE.txt

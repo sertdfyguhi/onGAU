@@ -40,11 +40,6 @@ def resize_size_to_fit(
     return width, height
 
 
-def append_dir_if_startswith(path: str, dir: str, startswith: str):
-    """Checks if a path starts with and if so appends a path to it"""
-    return os.path.join(dir, path) if path.startswith(startswith) else path
-
-
 def path_join(paths: list[str]) -> str:
     """Joins a list of paths into a sanitized string."""
     return ";".join([path.replace(",", "\\,").replace(";", "\\;") for path in paths])

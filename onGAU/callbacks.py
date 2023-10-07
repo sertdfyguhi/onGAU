@@ -5,6 +5,7 @@ from theme_manager import ThemeManager
 import logger, config, pipelines, utils
 
 from PIL import Image, UnidentifiedImageError
+from imagesize import get as get_imsize
 import dearpygui.dearpygui as dpg
 import torch
 import time
@@ -14,9 +15,7 @@ import re
 dpg.create_context()
 
 # Constants
-FILE_DIR = os.path.dirname(__file__)  # get the directory path of this file
-FONT = os.path.join(FILE_DIR, "fonts", config.FONT)
-
+FONT = os.path.join(os.path.dirname(__file__), "fonts", config.FONT)
 GENERATING_MESSAGE = logger.create("Generating... ", [logger.INFO, logger.BOLD])
 
 print(
@@ -37,9 +36,9 @@ theme_manager = ThemeManager(config.THEME_DIR)
 settings_manager = SettingsManager(config.USER_SETTINGS_FILE, theme_manager)
 user_settings = settings_manager.get_settings("main")
 
-model_path = utils.append_dir_if_startswith(user_settings["model"], FILE_DIR, "models/")
 imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
 use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
+model_path = user_settings["model"]
 
 
 logger.info(f"Loading {model_path}...")
@@ -51,12 +50,11 @@ try:
 except FileNotFoundError:
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
-    model_path = utils.append_dir_if_startswith(
-        config.DEFAULT_MODEL, FILE_DIR, "models/"
-    )
-
+    model_path = config.DEFAULT_MODEL
     logger.info(f"Loading {model_path}...")
-    imagen = imagen_class(model_path, config.DEVICE, use_LPWSD)
+    imagen = imagen_class(
+        model_path, config.DEVICE, user_settings["precision"], use_LPWSD
+    )
 
 imagen.max_embeddings_multiples = config.MAX_EMBEDDINGS_MULTIPLES
 
@@ -89,23 +87,21 @@ for op in [
 
 # Load embedding models.
 for path in config.EMBEDDING_MODELS:
-    emb_model_path = utils.append_dir_if_startswith(path, FILE_DIR, "models/")
-    logger.info(f"Loading embedding model {emb_model_path}...")
+    logger.info(f"Loading embedding model {path}...")
 
     try:
-        imagen.load_embedding_model(emb_model_path)
+        imagen.load_embedding_model(path)
     except OSError:
-        logger.error(f"Embedding model {emb_model_path} does not exist, skipping.")
+        logger.error(f"Embedding model {path} does not exist, skipping.")
 
 # Load Loras.
 for path in config.LORAS:
-    lora_path = utils.append_dir_if_startswith(path, FILE_DIR, "models/")
-    logger.info(f"Loading lora {lora_path}...")
+    logger.info(f"Loading lora {path}...")
 
     try:
-        imagen.load_lora(lora_path)
+        imagen.load_lora(path)
     except OSError as e:
-        logger.error(f"Lora {lora_path} does not exist, skipping.")
+        logger.error(f"Lora {path} does not exist, skipping.")
 
 # Load theme.
 theme = user_settings["theme"]
@@ -176,9 +172,10 @@ def save_model_callback():
 
     # Generate the path for model weights.
     dir_path = os.path.join(
-        FILE_DIR,
         "models",
-        os.path.basename(imagen.model_path).split(".")[0],  # Get name of model.
+        ".".join(
+            os.path.basename(imagen.model_path).split(".")[:-1]
+        ),  # Get name of model.
     )
     os.mkdir(dir_path)
     imagen.save_weights(dir_path)
@@ -261,7 +258,7 @@ def gen_progress_callback(
         # Continuously check for restart.
         while gen_status == 2:
             # Sleep to avoid using too much resources.
-            time.sleep(0.3)
+            time.sleep(0.1)
 
         # If exit generation is called.
         if gen_status == 3:
@@ -371,9 +368,7 @@ def generate_image_callback():
     texture_manager.clear()  # Save memory by deleting textures.
 
     # Get the path of the model.
-    model_path = utils.append_dir_if_startswith(
-        dpg.get_value("model"), FILE_DIR, "models/"
-    )
+    model_path = dpg.get_value("model")
     if model_path != imagen.model_path and load_model(model_path):
         return
 
@@ -451,7 +446,7 @@ def toggle_xformers_callback(_, value: bool):
         imagen.disable_xformers_memory_attention()
         dpg.set_value("xformers_memory_attention", False)
         status(
-            "You don't have XFormers installed. Please run `pip3 install xformers`.",
+            "You don't have xformers installed. Please run `pip install xformers`.",
             logger.error,
         )
 
@@ -506,11 +501,9 @@ def base_image_path_callback():
         status("Base image path does not exist.", None)
         return
 
-    from imagesize import get as get_imsize
-
     image_size = get_imsize(base_image_path)
     if image_size == (-1, -1):
-        status("Base image path is not an image file.", None)
+        status("Base image path could not be read as a image file.", None)
         return
 
     base_image_aspect_ratio = image_size[0] / image_size[1]

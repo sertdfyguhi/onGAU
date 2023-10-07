@@ -103,8 +103,6 @@ def upscale_image_callback():
         status("Upscale model path has not been set.", logger.error)
         return
 
-    model = utils.append_dir_if_startswith(model, FILE_DIR, "models/")
-
     # Initialize the ESRGAN model if it hasn't been initialized yet.
     if not upscaler or upscaler_type_ != upscaler_type:
         upscaler_type = upscaler_type_

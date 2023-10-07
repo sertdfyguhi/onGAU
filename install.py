@@ -7,7 +7,6 @@ os.system(f"pip3 install -r {os.path.join(root, 'requirements.txt')}")
 
 print("Creating directories...")
 os.mkdir(os.path.join(root, "saves"))
-os.mkdir(os.path.join(root, "onGAU", "models"))
 
 print("What should be the default model when starting onGAU?")
 model = input("Path to model: ")
