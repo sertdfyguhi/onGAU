@@ -8,7 +8,7 @@ import os
 
 
 def create_torch_generator(
-    seed: int | list[int] | None, device: str, generator_amount: int = 1
+    seed: int | list[int] | None = None, device: str = "cpu", generator_amount: int = 1
 ):
     if type(seed) == int:
         seed = [seed] * generator_amount

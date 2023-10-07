@@ -5,7 +5,7 @@ huggingface_hub==0.14.1
 imagesize==1.4.1
 numpy==1.23.5
 omegaconf==2.2.3
-Pillow==10.0.0
+Pillow==10.0.1
 pyperclip==1.8.2
 requests==2.31.0
 torch==2.0.1
