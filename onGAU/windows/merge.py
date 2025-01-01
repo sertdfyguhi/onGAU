@@ -31,9 +31,7 @@ def merge_checkpoint_callback():
 
     # Get interpolation function from text value.
     interp_func = INTERP_FUNC_MAPPING[dpg.get_value("interp_method_input")]
-    path = utils.append_dir_if_startswith(
-        dpg.get_value("merge_path_input"), FILE_DIR, "models/"
-    )
+    path = dpg.get_value("merge_path_input")
     ignore_te = dpg.get_value("ignore_te")
     alpha = dpg.get_value("alpha")
 

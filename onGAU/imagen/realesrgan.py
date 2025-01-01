@@ -1,5 +1,18 @@
 from .base import GeneratedImage
 
+# Hack to fix a changed import in torchvision 0.17+, which otherwise breaks
+# basicsr; see https://github.com/AUTOMATIC1111/stable-diffusion-webui/issues/13985
+try:
+    import torchvision.transforms.functional_tensor  # type: ignore
+except ImportError:
+    try:
+        import torchvision.transforms.functional as functional
+        import sys
+
+        sys.modules["torchvision.transforms.functional_tensor"] = functional
+    except ImportError:
+        pass  # shrug...
+
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from realesrgan import RealESRGANer
 from dataclasses import dataclass

@@ -220,7 +220,9 @@ with dpg.window(tag="window"):
     )
     add_tooltip("The image height of the output image.")
 
-    with dpg.group(tag="strength_group", show=user_settings["pipeline"] == "SDImg2Img"):
+    with dpg.group(
+        tag="strength_group", show=user_settings["pipeline"].endswith("Img2Img")
+    ):
         dpg.add_input_float(
             label="Denoising Strength",
             default_value=0.80,
@@ -280,7 +282,7 @@ with dpg.window(tag="window"):
     #     btn = dpg.add_button(label="Choose...")
     # Group to hide and show tooltip as it breaks if you only hide the parent.
     with dpg.group(
-        tag="base_image_group", show=user_settings["pipeline"] == "SDImg2Img"
+        tag="base_image_group", show=user_settings["pipeline"].endswith("Img2Img")
     ):
         dpg.add_input_text(
             # readonly=True,
@@ -299,8 +301,12 @@ with dpg.window(tag="window"):
     with dpg.group(tag="advanced_config", indent=7, show=False):
         dpg.add_combo(
             label="Pipeline",
-            items=["Text2Img", "SDImg2Img"],
-            default_value=imagen.__class__.__name__,
+            items=["Text2Img", "Img2Img", "SDXL Text2Img", "SDXL Img2Img"],
+            default_value=(
+                f"SDXL {imagen.__class__.__name__}"
+                if imagen.sdxl
+                else imagen.__class__.__name__
+            ),
             width=config.ITEM_WIDTH,
             callback=change_pipeline_callback,
             tag="pipeline",

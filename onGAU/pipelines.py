@@ -4,6 +4,7 @@ import logger
 from PIL import UnidentifiedImageError, Image
 from threading import Thread
 import dearpygui.dearpygui as dpg
+import traceback
 import time
 import re
 import os
@@ -25,6 +26,7 @@ def thread_generate(func, callback, **kwargs):
             callback(e.args[1], time.time() - start_time, True)
             return
         except Exception as e:
+            traceback.print_exc(e)
             callback(e, time.time() - start_time, True)
             return
 
@@ -82,7 +84,7 @@ def text2img(
 
 
 def img2img(
-    imagen: SDImg2Img, prepare_UI, callback, progress_callback
+    imagen: Img2Img, prepare_UI, callback, progress_callback
 ) -> list[Img2ImgGeneratedImage]:
     prompt = dpg.get_value("prompt")
     negative_prompt = dpg.get_value("negative_prompt")

@@ -1,4 +1,4 @@
-from imagen import Text2Img, SDImg2Img, GeneratedImage
+from imagen import Text2Img, Img2Img, GeneratedImage
 from settings_manager import SettingsManager
 from texture_manager import TextureManager
 from theme_manager import ThemeManager
@@ -36,8 +36,9 @@ theme_manager = ThemeManager(config.THEME_DIR)
 settings_manager = SettingsManager(config.USER_SETTINGS_FILE, theme_manager)
 user_settings = settings_manager.get_settings("main")
 
-imagen_class = Text2Img if user_settings["pipeline"] == "Text2Img" else SDImg2Img
+imagen_class = Text2Img if user_settings["pipeline"].endswith("Text2Img") else Img2Img
 use_LPWSD = user_settings["lpwsd_pipeline"] == "True"
+sdxl = user_settings["pipeline"].startswith("SDXL")
 model_path = user_settings["model"]
 
 
@@ -45,9 +46,9 @@ logger.info(f"Loading {model_path}...")
 
 try:
     imagen = imagen_class(
-        model_path, config.DEVICE, user_settings["precision"], use_LPWSD
+        model_path, config.DEVICE, user_settings["precision"], use_LPWSD, sdxl
     )
-except FileNotFoundError:
+except (FileNotFoundError, OSError):
     logger.error(f"{model_path} does not exist, falling back to default model.")
 
     model_path = config.DEFAULT_MODEL
@@ -67,15 +68,8 @@ if user_settings["safety_checker"] == "True":
 if (user_settings["attention_slicing"] == "True") or (
     user_settings["attention_slicing"] is None and imagen.device == "mps"
 ):  # Attention Slicing boosts performance on apple silicon
+    # produces black image when fp16 and sdxl
     imagen.enable_attention_slicing()
-
-if user_settings["compel_weighting"] == "True":
-    if imagen.lpw_stable_diffusion_used:
-        logger.warn(
-            "Compel prompt weighting cannot be used when using LPWSD pipeline. Will not be enabled."
-        )
-    else:
-        imagen.enable_compel_weighting()
 
 for op in [
     "vae_slicing",
@@ -86,13 +80,26 @@ for op in [
         getattr(imagen, f"enable_{op}")()
 
 # Load embedding models.
-for path in config.EMBEDDING_MODELS:
-    logger.info(f"Loading embedding model {path}...")
+if sdxl:
+    logger.warn(
+        "Embedding models have not been implemented for SDXL yet. WIll not be loaded."
+    )
+else:
+    for path in config.EMBEDDING_MODELS:
+        logger.info(f"Loading embedding model {path}...")
 
-    try:
-        imagen.load_embedding_model(path)
-    except OSError:
-        logger.error(f"Embedding model {path} does not exist, skipping.")
+        try:
+            imagen.load_embedding_model(path)
+        except OSError:
+            logger.error(f"Embedding model {path} does not exist, skipping.")
+
+if user_settings["compel_weighting"] == "True":
+    if imagen.lpw_stable_diffusion_used:
+        logger.warn(
+            "Compel prompt weighting cannot be used when using LPWSD pipeline. Will not be enabled."
+        )
+    else:
+        imagen.enable_compel_weighting()
 
 # Load Loras.
 for path in config.LORAS:
@@ -102,6 +109,7 @@ for path in config.LORAS:
         imagen.load_lora(path)
     except OSError as e:
         logger.error(f"Lora {path} does not exist, skipping.")
+
 
 # Load theme.
 theme = user_settings["theme"]
@@ -461,17 +469,22 @@ def change_pipeline_callback(_, pipeline: str):
     # Clear old imagen object.
     del imagen._pipeline
 
+    if pipeline.startswith("SDXL"):
+        imagen.sdxl = True
+
     match pipeline:
-        case "Text2Img":
+        case "Text2Img" | "SDXL Text2Img":
             imagen = Text2Img.from_class(imagen)
             dpg.hide_item("base_image_group")
             dpg.hide_item("strength_group")
 
-        case "SDImg2Img":
-            imagen = SDImg2Img.from_class(imagen)
+        case "Img2Img" | "SDXL Img2Img":
+            imagen = Img2Img.from_class(imagen)
             dpg.show_item("base_image_group")
             dpg.show_item("strength_group")
             base_image_path_callback()
+
+    print(type(imagen._pipeline))
 
     dpg.hide_item("status_text")
     update_window_title()
@@ -540,9 +553,10 @@ def use_in_img2img_callback():
     dpg.set_value("base_image_path", file_path)
 
     # Change pipeline if not in img2img.
-    if type(imagen) != SDImg2Img:
-        dpg.set_value("pipeline", "SDImg2Img")
-        change_pipeline_callback(None, "SDImg2Img")
+    if type(imagen) != Img2Img:
+        pipeline = "SDXL Img2Img" if imagen.sdxl else "Img2Img"
+        dpg.set_value("pipeline", pipeline)
+        change_pipeline_callback(None, pipeline)
 
     dpg.set_value("use_in_img2img_btn", "Use In Img2Img")
 
@@ -643,9 +657,9 @@ def load_settings(settings: dict):
                     else:
                         change_pipeline_callback(None, "Text2Img")
                         dpg.set_value(setting, "Text2Img")
-                elif value in ["StableDiffusionImg2ImgPipeline", "SDImg2Img"]:
-                    change_pipeline_callback(None, "SDImg2Img")
-                    dpg.set_value(setting, "SDImg2Img")
+                elif value in ["StableDiffusionImg2ImgPipeline", "Img2Img"]:
+                    change_pipeline_callback(None, "Img2Img")
+                    dpg.set_value(setting, "Img2Img")
                 else:
                     logger.error("Pipeline could not be understood.")
 

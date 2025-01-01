@@ -1,7 +1,7 @@
 from .base import BaseImagen, GeneratedImage, GeneratedLatents
 from . import utils
 
-from diffusers import StableDiffusionImg2ImgPipeline
+from diffusers import StableDiffusionImg2ImgPipeline, StableDiffusionXLImg2ImgPipeline
 from dataclasses import dataclass, asdict
 from typing import Callable
 from PIL.Image import Image
@@ -21,17 +21,22 @@ class Img2ImgGeneratedLatents(GeneratedLatents):
     base_image_path: str
 
 
-class SDImg2Img(BaseImagen):
+class Img2Img(BaseImagen):
     def set_model(
         self,
         model: str,
         precision: str = "fp32",
         use_lpw_stable_diffusion: bool = False,
+        sdxl: bool = False,
     ):
         self._set_model(
             model,
             precision=precision,
-            pipeline=StableDiffusionImg2ImgPipeline,
+            pipeline=(
+                StableDiffusionXLImg2ImgPipeline
+                if sdxl
+                else StableDiffusionImg2ImgPipeline
+            ),
             use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
 
@@ -78,16 +83,25 @@ class SDImg2Img(BaseImagen):
             image_amount,
         )
 
-        prompt_embeds = negative_prompt_embeds = None
+        prompt_embeds = negative_prompt_embeds = pooled_prompt_embeds = (
+            negative_pooled_prompt_embeds
+        ) = None
         temp_prompt = prompt
         temp_negative_prompt = negative_prompt
 
         if self.compel_weighting_enabled:
             temp_prompt = temp_negative_prompt = None
-            prompt_embeds = self._compel.build_conditioning_tensor(prompt)
-            negative_prompt_embeds = self._compel.build_conditioning_tensor(
-                negative_prompt
-            )
+
+            if self.sdxl:
+                prompt_embeds, pooled_prompt_embeds = self._compel(prompt)
+                negative_prompt_embeds, negative_pooled_prompt_embeds = self._compel(
+                    negative_prompt
+                )
+            else:
+                prompt_embeds = self._compel.build_conditioning_tensor(prompt)
+                negative_prompt_embeds = self._compel.build_conditioning_tensor(
+                    negative_prompt
+                )
 
         # Use for callback.
         out_image_kwargs = {
@@ -111,7 +125,7 @@ class SDImg2Img(BaseImagen):
         last_step_time = time.time()
         start_time = time.time()
 
-        def callback_wrapper(step: int, _, latents):
+        def callback_wrapper(pipe, step: int, _, kwargs):
             nonlocal last_step_time
 
             now = time.time()
@@ -122,11 +136,12 @@ class SDImg2Img(BaseImagen):
                 now - last_step_time,
                 now - start_time,
                 Img2ImgGeneratedLatents(
-                    **out_image_kwargs, seeds=seeds, latents=latents
+                    **out_image_kwargs, seeds=seeds, latents=kwargs["latents"]
                 ),
             )
 
             last_step_time = now
+            return kwargs
 
         kwargs = {
             "image": base_image,
@@ -138,13 +153,17 @@ class SDImg2Img(BaseImagen):
             "guidance_scale": guidance_scale,
             "strength": strength,
             "num_images_per_prompt": image_amount,
-            "callback": callback_wrapper if progress_callback else None,
+            "callback_on_step_end": callback_wrapper if progress_callback else None,
         }
 
         if self.lpw_stable_diffusion_used:
             # lpwsd pipeline does not accept prompt embeds
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
             kwargs["max_embeddings_multiples"] = self.max_embeddings_multiples
+
+        if self.compel_weighting_enabled and self.sdxl:
+            kwargs["pooled_prompt_embeds"] = pooled_prompt_embeds
+            kwargs["negative_pooled_prompt_embeds"] = negative_pooled_prompt_embeds
 
         if self.device == "mps" and len(seeds) > 1:
             kwargs["num_images_per_prompt"] = 1
@@ -166,6 +185,11 @@ class SDImg2Img(BaseImagen):
                 )
             )
 
-        del prompt_embeds, negative_prompt_embeds
+        del (
+            prompt_embeds,
+            negative_prompt_embeds,
+            pooled_prompt_embeds,
+            negative_pooled_prompt_embeds,
+        )
 
         return result

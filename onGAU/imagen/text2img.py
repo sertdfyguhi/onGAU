@@ -1,9 +1,10 @@
 from .base import BaseImagen, GeneratedImage, GeneratedLatents
 from . import utils
 
-from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 from dataclasses import asdict
 from typing import Callable
+from PIL import Image
 import torch
 import time
 
@@ -15,21 +16,30 @@ class Text2Img(BaseImagen):
         model: str,
         precision: str = "fp32",
         use_lpw_stable_diffusion: bool = False,
+        sdxl: bool = False,
     ):
         self._set_model(
             model,
             precision=precision,
-            pipeline=StableDiffusionPipeline,
+            pipeline=StableDiffusionXLPipeline if sdxl else StableDiffusionPipeline,
             use_lpw_stable_diffusion=use_lpw_stable_diffusion,
         )
 
     def convert_latent_to_image(self, latents: GeneratedLatents) -> GeneratedImage:
         """Convert a GeneratedLatent object into a GeneratedImage object."""
         # Convert latent space image into PIL image.
-        with torch.no_grad():
-            images = self._pipeline.numpy_to_pil(
-                self._pipeline.decode_latents(latents.latents)
-            )
+        images = []
+
+        for latent in (
+            latents.latents if type(latents.latents) == list else [latents.latents]
+        ):
+            image_latents = 1 / 0.18215 * latent
+            with torch.no_grad():
+                image = self._pipeline.vae.decode(image_latents).sample
+
+            image = (image / 2 + 0.5).clamp(0, 1).squeeze()
+            image = (image.permute(1, 2, 0) * 255).to(torch.uint8).cpu().numpy()
+            images.append(Image.fromarray(image))
 
         dict_latents = asdict(latents)
 
@@ -63,16 +73,25 @@ class Text2Img(BaseImagen):
             image_amount,
         )
 
-        prompt_embeds = negative_prompt_embeds = None
+        prompt_embeds = negative_prompt_embeds = pooled_prompt_embeds = (
+            negative_pooled_prompt_embeds
+        ) = None
         temp_prompt = prompt
         temp_negative_prompt = negative_prompt
 
         if self.compel_weighting_enabled:
             temp_prompt = temp_negative_prompt = None
-            prompt_embeds = self._compel.build_conditioning_tensor(prompt)
-            negative_prompt_embeds = self._compel.build_conditioning_tensor(
-                negative_prompt
-            )
+
+            if self.sdxl:
+                prompt_embeds, pooled_prompt_embeds = self._compel(prompt)
+                negative_prompt_embeds, negative_pooled_prompt_embeds = self._compel(
+                    negative_prompt
+                )
+            else:
+                prompt_embeds = self._compel.build_conditioning_tensor(prompt)
+                negative_prompt_embeds = self._compel.build_conditioning_tensor(
+                    negative_prompt
+                )
 
         # Use for callback.
         out_image_kwargs = {
@@ -94,7 +113,7 @@ class Text2Img(BaseImagen):
         last_step_time = time.time()
         start_time = time.time()
 
-        def callback_wrapper(step: int, _, latents):
+        def callback_wrapper(pipe, step: int, _, kwargs):
             nonlocal last_step_time
 
             now = time.time()
@@ -104,10 +123,13 @@ class Text2Img(BaseImagen):
                 step_count,
                 now - last_step_time,
                 now - start_time,
-                GeneratedLatents(**out_image_kwargs, seeds=seeds, latents=latents),
+                GeneratedLatents(
+                    **out_image_kwargs, seeds=seeds, latents=kwargs["latents"]
+                ),
             )
 
             last_step_time = now
+            return kwargs
 
         kwargs = {
             "prompt": temp_prompt,
@@ -119,13 +141,17 @@ class Text2Img(BaseImagen):
             "num_inference_steps": step_count,
             "guidance_scale": guidance_scale,
             "num_images_per_prompt": image_amount,
-            "callback": callback_wrapper if progress_callback else None,
+            "callback_on_step_end": callback_wrapper if progress_callback else None,
         }
 
         if self.lpw_stable_diffusion_used:
             # lpwsd pipeline does not accept prompt embeds
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
             kwargs["max_embeddings_multiples"] = self.max_embeddings_multiples
+
+        if self.compel_weighting_enabled and self.sdxl:
+            kwargs["pooled_prompt_embeds"] = pooled_prompt_embeds
+            kwargs["negative_pooled_prompt_embeds"] = negative_pooled_prompt_embeds
 
         if self.device == "mps" and len(seeds) > 1:
             kwargs["num_images_per_prompt"] = 1
@@ -147,6 +173,11 @@ class Text2Img(BaseImagen):
                 )
             )
 
-        del prompt_embeds, negative_prompt_embeds
+        del (
+            prompt_embeds,
+            negative_prompt_embeds,
+            pooled_prompt_embeds,
+            negative_pooled_prompt_embeds,
+        )
 
         return result

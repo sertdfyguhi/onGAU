@@ -2,9 +2,9 @@ from diffusers import DiffusionPipeline, StableDiffusionPipeline, schedulers
 from diffusers.utils import get_class_from_dynamic_module
 
 # from diffusers.utils import get_class_from_dynamic_module
+from compel import Compel, ReturnedEmbeddingsType, DiffusersTextualInversionManager
 from huggingface_hub.utils import HFValidationError
 from dataclasses import dataclass
-from compel import Compel
 from PIL import Image
 import torch
 import os
@@ -103,6 +103,7 @@ class BaseImagen:
         device: str,
         precision: str = "fp32",
         use_lpw_stable_diffusion: bool = False,
+        sdxl: bool = False,
         max_embeddings_multiples: int = 5,
     ) -> None:
         """Base class for all imagen classes."""
@@ -122,7 +123,9 @@ class BaseImagen:
         self.xformers_memory_attention_enabled = False
         self.compel_weighting_enabled = False
 
-        self.set_model(model_path, precision, use_lpw_stable_diffusion)
+        self.sdxl = sdxl
+
+        self.set_model(model_path, precision, use_lpw_stable_diffusion, sdxl)
 
     @property
     def pipeline(self):
@@ -136,6 +139,7 @@ class BaseImagen:
             original.device,
             original.precision,
             original.lpw_stable_diffusion_used,
+            original.sdxl,
         )  # initialize class
 
         c.set_clip_skip_amount(original.clip_skip_amount)
@@ -185,6 +189,9 @@ class BaseImagen:
                 "Compel prompt weighting cannot be used when using LPWSD pipeline."
             )
 
+        if use_lpw_stable_diffusion and self.sdxl:
+            raise RuntimeError("LPW stable diffusion cannot be used with SDXL.")
+
         # Some cleanup.
         if hasattr(self, "_pipeline"):
             del self._pipeline
@@ -205,9 +212,9 @@ class BaseImagen:
             )(
                 model,
                 torch_dtype=convert_str_to_dtype(precision),
-                custom_pipeline="lpw_stable_diffusion"
-                if use_lpw_stable_diffusion
-                else None,
+                custom_pipeline=(
+                    "lpw_stable_diffusion" if use_lpw_stable_diffusion else None
+                ),
             )
 
             if is_file and use_lpw_stable_diffusion:
@@ -270,16 +277,19 @@ class BaseImagen:
 
     def load_embedding_model(self, embedding_model_path: str):
         """Load a textual inversion model."""
-        if embedding_model_path in self.embedding_models_loaded:
+        if embedding_model_path in self.embedding_models_loaded or self.sdxl:
             return
 
         try:
             self._pipeline.load_textual_inversion(
                 embedding_model_path,
-                os.path.basename(embedding_model_path).split(".")[0],
+                token=os.path.basename(embedding_model_path).split(".")[0],
             )
         except ValueError:  # when tokenizer already has that token
             return
+
+        if self.compel_weighting_enabled:
+            self.enable_compel_weighting()  # reload compel
 
         self.embedding_models_loaded.append(embedding_model_path)
 
@@ -367,7 +377,15 @@ class BaseImagen:
 
     def set_precision(self, precision: str):
         """Set model precision. fp16 or fp32."""
-        self._pipeline = self._pipeline.to(torch_dtype=convert_str_to_dtype(precision))
+        if self.precision == "fp16" and precision == "fp32":
+            self.set_model(
+                self.model_path, precision, self.lpw_stable_diffusion_used, self.sdxl
+            )
+        else:
+            self._pipeline = self._pipeline.to(
+                torch_dtype=convert_str_to_dtype(precision)
+            )
+
         self.precision = precision
 
     def enable_safety_checker(self):
@@ -380,7 +398,15 @@ class BaseImagen:
         """Disable the safety checker."""
         if hasattr(self._pipeline, "safety_checker") and self._pipeline.safety_checker:
             self.safety_checker_enabled = False
-            self._pipeline.safety_checker = lambda images, clip_input: (images, [False])
+
+            def disabled_safety_checker(images, clip_input):
+                if len(images.shape) == 4:
+                    num_images = images.shape[0]
+                    return images, [False] * num_images
+                else:
+                    return images, False
+
+            self._pipeline.safety_checker = disabled_safety_checker
 
     def enable_attention_slicing(self):
         self.attention_slicing_enabled = True
@@ -428,9 +454,23 @@ class BaseImagen:
             )
 
         self.compel_weighting_enabled = True
-        self._compel = Compel(
-            self._pipeline.tokenizer, self._pipeline.text_encoder, device=self.device
-        )
+        if self.sdxl:
+            self._compel = Compel(
+                [self._pipeline.tokenizer, self._pipeline.tokenizer_2],
+                [self._pipeline.text_encoder, self._pipeline.text_encoder_2],
+                # DiffusersTextualInversionManager(self._pipeline),
+                returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+                requires_pooled=[False, True],
+                device=self.device,
+            )
+        else:
+            self._compel = Compel(
+                self._pipeline.tokenizer,
+                self._pipeline.text_encoder,
+                DiffusersTextualInversionManager(self._pipeline),
+                device=self.device,
+            )
 
     def disable_compel_weighting(self):
         self.compel_weighting_enabled = False
+        del self._compel
