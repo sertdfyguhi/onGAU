@@ -55,8 +55,7 @@ python3 install.py
 - [x] Create an install script to easily install UI
 - [x] Interrupt generation process
 - [x] Add SDXL support
-- [ ] Update diffusers to latest version
-  - [ ] Embedding model support for SDXL
+- [x] Update diffusers to latest version
 - [ ] Preview image during generation
 - Code Optimization
   - [x] Fix memory leak when Compel prompt weighting is enabled

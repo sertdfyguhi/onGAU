@@ -80,9 +80,10 @@ for op in [
         getattr(imagen, f"enable_{op}")()
 
 # Load embedding models.
-if sdxl:
+if imagen.device == "mps":
+    # NotImplementedError: The operator 'aten::_linalg_eigvals' is not currently implemented for the MPS device.
     logger.warn(
-        "Embedding models have not been implemented for SDXL yet. WIll not be loaded."
+        "Embedding models do not work on the latest version of PyTorch on MPS. They will not be loaded."
     )
 else:
     for path in config.EMBEDDING_MODELS:

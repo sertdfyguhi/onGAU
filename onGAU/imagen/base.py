@@ -277,7 +277,8 @@ class BaseImagen:
 
     def load_embedding_model(self, embedding_model_path: str):
         """Load a textual inversion model."""
-        if embedding_model_path in self.embedding_models_loaded or self.sdxl:
+        # NotImplementedError: The operator 'aten::_linalg_eigvals' is not currently implemented for the MPS device.
+        if embedding_model_path in self.embedding_models_loaded or self.device == "mps":
             return
 
         try:
@@ -321,7 +322,7 @@ class BaseImagen:
         if device == "auto":
             if torch.cuda.is_available():
                 device = "cuda"
-            elif getattr(torch, "has_mps", False):
+            elif torch.backends.mps.is_built():
                 device = "mps"
             else:
                 device = "cpu"
@@ -458,7 +459,7 @@ class BaseImagen:
             self._compel = Compel(
                 [self._pipeline.tokenizer, self._pipeline.tokenizer_2],
                 [self._pipeline.text_encoder, self._pipeline.text_encoder_2],
-                # DiffusersTextualInversionManager(self._pipeline),
+                DiffusersTextualInversionManager(self._pipeline),
                 returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
                 requires_pooled=[False, True],
                 device=self.device,
