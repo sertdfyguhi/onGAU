@@ -28,6 +28,7 @@ with dpg.window(
     tag="image_load_dialog",
     pos=CENTER,
     modal=True,
+    show=False,
 ):
     dpg.add_input_text(
         label="Image Path",
@@ -59,6 +60,7 @@ with dpg.window(
     tag="save_settings_dialog",
     pos=CENTER,
     modal=True,
+    show=False,
 ):
     dpg.add_input_text(
         label="Save Name",
@@ -87,6 +89,7 @@ with dpg.window(
     tag="delete_save_dialog",
     pos=CENTER,
     modal=True,
+    show=False,
 ):
     dpg.add_combo(
         label="Saves",

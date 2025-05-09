@@ -80,19 +80,19 @@ for op in [
         getattr(imagen, f"enable_{op}")()
 
 # Load embedding models.
-if imagen.device == "mps":
-    # NotImplementedError: The operator 'aten::_linalg_eigvals' is not currently implemented for the MPS device.
-    logger.warn(
-        "Embedding models do not work on the latest version of PyTorch on MPS. They will not be loaded."
-    )
-else:
-    for path in config.EMBEDDING_MODELS:
-        logger.info(f"Loading embedding model {path}...")
+# if sdxl and imagen.device == "mps":
+#     # NotImplementedError: The operator 'aten::_linalg_eigvals' is not currently implemented for the MPS device.
+#     logger.warn(
+#         "Embedding models do not work with SDXL on the latest version of Diffusers. They will not be loaded."
+#     )
+# else:
+for path in config.EMBEDDING_MODELS:
+    logger.info(f"Loading embedding model {path}...")
 
-        try:
-            imagen.load_embedding_model(path)
-        except OSError:
-            logger.error(f"Embedding model {path} does not exist, skipping.")
+    try:
+        imagen.load_embedding_model(path)
+    except OSError:
+        logger.error(f"Embedding model {path} does not exist, skipping.")
 
 if user_settings["compel_weighting"] == "True":
     if imagen.lpw_stable_diffusion_used:
@@ -725,8 +725,14 @@ def load_from_image_callback():
         settings.pop("lpwsd_pipeline", None)
         settings.pop("pipeline", None)
 
-    dpg.set_value("width", image.size[0])
-    dpg.set_value("height", image.size[1])
+    width, height = image.size
+    if "upscale_amount" in settings:
+        up_amount = int(settings["upscale_amount"])
+        width /= up_amount
+        height /= up_amount
+
+    dpg.set_value("width", width)
+    dpg.set_value("height", height)
 
     dpg.hide_item("image_load_dialog")
     dpg.hide_item("status_text")

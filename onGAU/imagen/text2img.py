@@ -148,6 +148,7 @@ class Text2Img(BaseImagen):
             # lpwsd pipeline does not accept prompt embeds
             del kwargs["prompt_embeds"], kwargs["negative_prompt_embeds"]
             kwargs["max_embeddings_multiples"] = self.max_embeddings_multiples
+            kwargs["callback"] = kwargs.pop("callback_on_step_end")
 
         if self.compel_weighting_enabled and self.sdxl:
             kwargs["pooled_prompt_embeds"] = pooled_prompt_embeds

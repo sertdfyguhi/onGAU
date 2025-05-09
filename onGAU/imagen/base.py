@@ -277,8 +277,7 @@ class BaseImagen:
 
     def load_embedding_model(self, embedding_model_path: str):
         """Load a textual inversion model."""
-        # NotImplementedError: The operator 'aten::_linalg_eigvals' is not currently implemented for the MPS device.
-        if embedding_model_path in self.embedding_models_loaded or self.device == "mps":
+        if embedding_model_path in self.embedding_models_loaded:
             return
 
         try:
